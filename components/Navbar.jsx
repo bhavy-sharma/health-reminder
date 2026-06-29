@@ -40,9 +40,9 @@ export default function Navbar() {
       </div>
 
       {/* CTA Button */}
-      <button className="hidden md:block bg-gray-900 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors">
+      <Link href="/signup" className="hidden md:block bg-gray-900 text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors">
         Start free — no card needed
-      </button>
+      </Link>
 
       {/* Mobile Menu Button */}
       <button className="md:hidden text-gray-900">
