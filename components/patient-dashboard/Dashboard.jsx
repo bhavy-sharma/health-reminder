@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FileText, 
   Bell, 
@@ -10,12 +10,19 @@ import {
   ChevronRight,
   CheckCircle,
   AlertTriangle,
-  Search
+  Search,
+  Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 import Sidebar from './Sidebar';
+import { useRouter } from 'next/navigation';
 
 const Dashboard = () => {
+  const router = useRouter();
+  const [recentRecords, setRecentRecords] = useState([]);
+  const [loadingRecords, setLoadingRecords] = useState(true);
+  const [familyId, setFamilyId] = useState(null);
+
   // Sample data - would come from API
   const familyMembers = [
     { 
@@ -70,32 +77,8 @@ const Dashboard = () => {
     }
   ];
 
-  const recentRecords = [
-    {
-      title: "Lab Report",
-      subtitle: "HbA1c Test Results",
-      person: "Father",
-      date: "June 10, 2026",
-      color: "blue"
-    },
-    {
-      title: "Prescription",
-      subtitle: "Blood Pressure Medication",
-      person: "Mother",
-      date: "June 9, 2026",
-      color: "green"
-    },
-    {
-      title: "ECG Report",
-      subtitle: "Annual Checkup",
-      person: "Rajesh",
-      date: "June 5, 2026",
-      color: "purple"
-    }
-  ];
-
   const quickActions = [
-    { icon: Upload, label: 'Upload Report', color: 'blue' },
+    { icon: Upload, label: 'Upload Report', color: 'blue', onClick: () => router.push('/health-records') },
     { icon: Bell, label: 'Set Reminder', color: 'purple' },
     { icon: Stethoscope, label: 'Prepare for Doctor', color: 'green' },
     { icon: AlertCircle, label: 'Emergency Info', color: 'red' }
@@ -131,6 +114,62 @@ const Dashboard = () => {
     purple: 'bg-purple-600 hover:bg-purple-700',
     yellow: 'bg-yellow-600 hover:bg-yellow-700',
     red: 'bg-red-600 hover:bg-red-700'
+  };
+
+  // Fetch recent records
+  useEffect(() => {
+    fetchRecentRecords();
+  }, []);
+
+  const fetchRecentRecords = async () => {
+    try {
+      setLoadingRecords(true);
+      
+      // Get user profile to get familyId
+      const profileRes = await fetch('/api/user/profile');
+      if (!profileRes.ok) throw new Error('Failed to fetch profile');
+      const profileData = await profileRes.json();
+
+      if (profileData.user?.activeFamilyId) {
+        const id = profileData.user.activeFamilyId._id || profileData.user.activeFamilyId;
+        setFamilyId(id);
+
+        // Fetch health records (limit to 3 for recent)
+        const recordsRes = await fetch(`/api/health-records?familyId=${id}&limit=3`);
+        if (recordsRes.ok) {
+          const data = await recordsRes.json();
+          setRecentRecords(data.records || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching recent records:', error);
+    } finally {
+      setLoadingRecords(false);
+    }
+  };
+
+  // Helper function to get icon color based on document type
+  const getRecordColor = (documentType) => {
+    const colorMap = {
+      lab_report: 'blue',
+      prescription: 'green',
+      xray_scan: 'purple',
+      vaccination: 'yellow',
+      insurance: 'blue',
+      other: 'gray'
+    };
+    return colorMap[documentType] || 'blue';
+  };
+
+  // Helper function to format date
+  const formatDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   return (
@@ -259,41 +298,77 @@ const Dashboard = () => {
                 View All <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-              {recentRecords.map((record, index) => {
-                const iconColor = iconColorMap[record.color];
-                return (
-                  <div 
-                    key={index} 
-                    className="bg-white rounded-lg p-3 md:p-4 shadow-sm border border-gray-100 hover:shadow-md transition flex flex-col h-full"
-                  >
-                    {/* Content - takes up available space */}
-                    <div className="flex-1">
-                      <div className="flex items-start gap-3">
-                        <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center ${iconColor} flex-shrink-0`}>
-                          <FileText className="w-5 h-5 md:w-6 md:h-6" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-gray-500 font-medium">{record.title}</p>
-                          <p className="text-sm md:text-base font-semibold text-gray-800">{record.subtitle}</p>
-                          <p className="text-xs text-gray-400 mt-1">{record.person} · {record.date}</p>
+            
+            {loadingRecords ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                <span className="ml-2 text-gray-500 text-sm">Loading records...</span>
+              </div>
+            ) : recentRecords.length === 0 ? (
+              <div className="text-center py-8">
+                <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No records uploaded yet</p>
+                <p className="text-sm text-gray-400 mt-1">Upload your first health record</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                {recentRecords.map((record, index) => {
+                  const color = getRecordColor(record.documentType);
+                  const iconColor = iconColorMap[color];
+                  return (
+                    <div 
+                      key={record.id || index} 
+                      className="bg-white rounded-lg p-3 md:p-4 shadow-sm border border-gray-100 hover:shadow-md transition flex flex-col h-full"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-start gap-3">
+                          <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center ${iconColor} flex-shrink-0`}>
+                            <FileText className="w-5 h-5 md:w-6 md:h-6" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">
+                              {record.category || record.documentType?.replace('_', ' ') || 'Document'}
+                            </p>
+                            <p className="text-sm md:text-base font-semibold text-gray-800 truncate">
+                              {record.title || record.documentName}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {record.member || 'Unknown'} · {formatDate(record.documentDate) || record.date}
+                            </p>
+                          </div>
                         </div>
                       </div>
+                      
+                      <div className="flex gap-2 mt-3 md:mt-4 pt-3 border-t border-gray-100">
+                        <button 
+                          onClick={() => window.open(record.fileUrl, '_blank')}
+                          className="flex-1 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+                        >
+                          View
+                        </button>
+                        <button 
+                          onClick={() => {
+                            // Share functionality
+                            if (navigator.share) {
+                              navigator.share({
+                                title: record.documentName || record.title,
+                                url: record.fileUrl,
+                              });
+                            } else {
+                              navigator.clipboard.writeText(record.fileUrl);
+                              // You can add a toast notification here
+                            }
+                          }}
+                          className="flex-1 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm font-medium text-white bg-gray-800 rounded-lg hover:bg-gray-900 transition"
+                        >
+                          Share
+                        </button>
+                      </div>
                     </div>
-                    
-                    {/* Buttons - always at the bottom */}
-                    <div className="flex gap-2 mt-3 md:mt-4 pt-3 border-t border-gray-100">
-                      <button className="flex-1 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
-                        View
-                      </button>
-                      <button className="flex-1 px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm font-medium text-white bg-gray-800 rounded-lg hover:bg-gray-900 transition">
-                        Share
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Quick Actions */}
@@ -311,6 +386,7 @@ const Dashboard = () => {
                 return (
                   <button 
                     key={index}
+                    onClick={action.onClick}
                     className={`flex flex-col items-center justify-center p-4 md:p-6 rounded-lg border-2 transition ${colors[action.color]}`}
                   >
                     <Icon className="w-6 h-6 md:w-8 md:h-8 mb-1 md:mb-2" />
