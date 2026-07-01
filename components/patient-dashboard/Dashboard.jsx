@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  FileText, 
-  Bell, 
-  Upload, 
-  Stethoscope, 
+import React, { useState, useEffect } from 'react';
+import {
+  FileText,
+  Bell,
+  Upload,
+  Stethoscope,
   AlertCircle,
   ChevronRight,
   CheckCircle,
@@ -19,6 +20,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import Sidebar from './Sidebar';
+import { useRouter } from 'next/navigation';
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
@@ -108,10 +110,10 @@ const Dashboard = () => {
 
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
+
             {/* Left/Middle Column (Colspan-2): Overview & Quick Actions */}
             <div className="lg:col-span-2 space-y-6">
-              
+
               {/* Family Health Overview */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 md:p-8">
                 <div className="flex items-center justify-between mb-6">
@@ -160,7 +162,7 @@ const Dashboard = () => {
                       red: 'bg-red-50/50 text-red-600 hover:bg-red-50 border-red-100'
                     };
                     return (
-                      <Link 
+                      <Link
                         href={action.href}
                         key={index}
                         className={`flex flex-col items-center justify-center p-5 rounded-xl border transition shadow-sm ${colors[action.color]}`}
@@ -177,7 +179,7 @@ const Dashboard = () => {
 
             {/* Right Column: Profile Summary & Storage/ABHA card */}
             <div className="space-y-6">
-              
+
               {/* Account Card */}
               {!loading && user && (
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
