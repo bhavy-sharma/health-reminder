@@ -3,36 +3,39 @@ import { connectToDatabase } from "@/lib/db";
 import Family from "@/models/Family";
 import User from "@/models/User";
 import FamilyMember from "@/models/FamilyMember";
-import jwt from "jsonwebtoken";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function POST(request) {
   try {
     console.log("=== POST /api/family/create START ===");
     
-    const token = request.cookies.get("token")?.value;
-    if (!token) {
+    await connectToDatabase();
+
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
-    } catch (error) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    await connectToDatabase();
 
     const body = await request.json();
     const { familyName } = body;
 
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById(auth.userId);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     if (user.activeFamilyId) {
-      return NextResponse.json({ error: "You already have a family" }, { status: 400 });
+      // Return the existing family instead of erroring
+      const existingFamily = await Family.findById(user.activeFamilyId);
+      return NextResponse.json(
+        {
+          message: "Family already exists",
+          family: existingFamily
+            ? { _id: existingFamily._id, familyName: existingFamily.familyName }
+            : { _id: user.activeFamilyId },
+        },
+        { status: 200 }
+      );
     }
 
     console.log("Creating family...");
@@ -44,14 +47,13 @@ export async function POST(request) {
     console.log("Family created:", family._id);
 
     console.log("Creating primary member...");
-    const primaryMember = await FamilyMember.create({
+    const memberData = {
       familyId: family._id,
       userId: user._id,
       name: user.fullName || "User",
       relationship: "self",
       dateOfBirth: user.profile?.dateOfBirth || new Date("2000-01-01"),
       gender: user.profile?.gender || "other",
-      bloodGroup: user.profile?.bloodGroup || null,
       avatarColor: user.profile?.avatarColor || "#6B7280",
       isPrimary: true,
       isActive: true,
@@ -59,22 +61,31 @@ export async function POST(request) {
       allergies: [],
       emergencyContact: {},
       notes: "",
-    });
+    };
+
+    if (user.profile?.bloodGroup) {
+      memberData.bloodGroup = user.profile.bloodGroup;
+    }
+
+    const primaryMember = await FamilyMember.create(memberData);
     console.log("Primary member created:", primaryMember._id);
 
     family.members = [primaryMember._id];
     await family.save();
 
-    user.activeFamilyId = family._id;
-    if (!user.families) {
-      user.families = [];
-    }
-    user.families.push({
-      familyId: family._id,
-      role: "admin",
-      joinedAt: new Date(),
-    });
-    await user.save();
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: { activeFamilyId: family._id },
+        $addToSet: {
+          families: {
+            familyId: family._id,
+            role: "admin",
+            joinedAt: new Date(),
+          },
+        },
+      }
+    );
 
     return NextResponse.json(
       {

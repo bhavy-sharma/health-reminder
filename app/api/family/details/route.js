@@ -1,25 +1,18 @@
-    import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import Family from "@/models/Family";
 import FamilyMember from "@/models/FamilyMember";
 import User from "@/models/User";
-import jwt from "jsonwebtoken";
+import { getAuthenticatedUser } from "@/lib/auth";
 
 export async function GET(request) {
   try {
-    const token = request.cookies.get("token")?.value;
-    if (!token) {
+    await connectToDatabase();
+
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
-    } catch (error) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    await connectToDatabase();
 
     const { searchParams } = new URL(request.url);
     const familyId = searchParams.get("familyId");
@@ -29,7 +22,7 @@ export async function GET(request) {
     }
 
     // Check if user belongs to this family
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById(auth.userId);
     const hasAccess = user.families?.some(f => f.familyId.toString() === familyId);
     
     if (!hasAccess && user.role !== "admin") {

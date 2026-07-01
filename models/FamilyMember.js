@@ -41,6 +41,9 @@ const FamilyMemberSchema = new mongoose.Schema(
       type: String,
       default: "#6B7280",
     },
+    avatarUrl: {
+      type: String,
+    },
     knownConditions: {
       type: [String],
       default: [],
@@ -88,7 +91,7 @@ FamilyMemberSchema.index({ userId: 1 });
 FamilyMemberSchema.index({ isPrimary: 1 });
 
 // Middleware to ensure only one primary member
-FamilyMemberSchema.pre('save', async function(next) {
+FamilyMemberSchema.pre('save', async function() {
   if (this.isPrimary) {
     try {
       const FamilyMember = mongoose.models.FamilyMember || mongoose.model("FamilyMember", FamilyMemberSchema);
@@ -106,7 +109,6 @@ FamilyMemberSchema.pre('save', async function(next) {
       console.error("Error in pre-save middleware:", error);
     }
   }
-  next();
 });
 
 // Check if model exists before creating it

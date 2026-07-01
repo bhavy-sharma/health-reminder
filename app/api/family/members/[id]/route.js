@@ -3,24 +3,24 @@ import { connectToDatabase } from "@/lib/db";
 import Family from "@/models/Family";
 import FamilyMember from "@/models/FamilyMember";
 import User from "@/models/User";
-import jwt from "jsonwebtoken";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { v2 as cloudinary } from 'cloudinary';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 // GET - Get a single family member
 export async function GET(request, { params }) {
   try {
-    const token = request.cookies.get("token")?.value;
-    if (!token) {
+    await connectToDatabase();
+
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
-    } catch (error) {
-      return NextResponse.json({ error: "Unauthorized - Invalid token" }, { status: 401 });
-    }
-
-    await connectToDatabase();
 
     const { id } = await params;
 
@@ -33,7 +33,7 @@ export async function GET(request, { params }) {
     }
 
     // Check if user has access to this family
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById(auth.userId);
     const hasAccess = user.families?.some(f => f.familyId.toString() === member.familyId.toString());
     
     if (!hasAccess && user.role !== "admin") {
@@ -56,19 +56,12 @@ export async function GET(request, { params }) {
 // PUT - Update a family member
 export async function PUT(request, { params }) {
   try {
-    const token = request.cookies.get("token")?.value;
-    if (!token) {
+    await connectToDatabase();
+
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
-    } catch (error) {
-      return NextResponse.json({ error: "Unauthorized - Invalid token" }, { status: 401 });
-    }
-
-    await connectToDatabase();
 
     const { id } = await params;
     const body = await request.json();
@@ -83,6 +76,7 @@ export async function PUT(request, { params }) {
       emergencyContact,
       notes,
       isActive,
+      avatarBase64,
     } = body;
 
     // Check if member exists
@@ -95,7 +89,7 @@ export async function PUT(request, { params }) {
     }
 
     // Check if user has access to this family
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById(auth.userId);
     const hasAccess = user.families?.some(f => f.familyId.toString() === member.familyId.toString());
     
     if (!hasAccess && user.role !== "admin") {
@@ -113,6 +107,19 @@ export async function PUT(request, { params }) {
       );
     }
 
+    // Handle image upload if provided
+    let uploadedAvatarUrl = member.avatarUrl;
+    if (avatarBase64) {
+      try {
+        const uploadRes = await cloudinary.uploader.upload(avatarBase64, {
+          folder: "health-reminder/avatars",
+        });
+        uploadedAvatarUrl = uploadRes.secure_url;
+      } catch (err) {
+        console.error("Cloudinary upload error:", err);
+      }
+    }
+
     // Update member
     const updatedMember = await FamilyMember.findByIdAndUpdate(
       id,
@@ -122,6 +129,7 @@ export async function PUT(request, { params }) {
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : member.dateOfBirth,
         gender: gender || member.gender,
         bloodGroup: bloodGroup || member.bloodGroup,
+        avatarUrl: uploadedAvatarUrl,
         knownConditions: knownConditions || member.knownConditions,
         allergies: allergies || member.allergies,
         emergencyContact: emergencyContact || member.emergencyContact,
@@ -141,7 +149,7 @@ export async function PUT(request, { params }) {
   } catch (error) {
     console.error("Error updating family member:", error);
     return NextResponse.json(
-      { error: "Failed to update family member" },
+      { error: "Failed to update family member", details: error.message },
       { status: 500 }
     );
   }
@@ -150,19 +158,12 @@ export async function PUT(request, { params }) {
 // DELETE - Remove a family member
 export async function DELETE(request, { params }) {
   try {
-    const token = request.cookies.get("token")?.value;
-    if (!token) {
+    await connectToDatabase();
+
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
-    } catch (error) {
-      return NextResponse.json({ error: "Unauthorized - Invalid token" }, { status: 401 });
-    }
-
-    await connectToDatabase();
 
     const { id } = await params;
 
@@ -176,7 +177,7 @@ export async function DELETE(request, { params }) {
     }
 
     // Check if user has access to this family
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById(auth.userId);
     const hasAccess = user.families?.some(f => f.familyId.toString() === member.familyId.toString());
     
     if (!hasAccess && user.role !== "admin") {
@@ -219,7 +220,7 @@ export async function DELETE(request, { params }) {
   } catch (error) {
     console.error("Error deleting family member:", error);
     return NextResponse.json(
-      { error: "Failed to delete family member" },
+      { error: "Failed to delete family member", details: error.message },
       { status: 500 }
     );
   }

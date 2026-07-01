@@ -3,24 +3,24 @@ import { connectToDatabase } from "@/lib/db";
 import Family from "@/models/Family";
 import FamilyMember from "@/models/FamilyMember";
 import User from "@/models/User";
-import jwt from "jsonwebtoken";
+import { getAuthenticatedUser } from "@/lib/auth";
+import { v2 as cloudinary } from 'cloudinary';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 // GET - Get all family members
 export async function GET(request) {
   try {
-    const token = request.cookies.get("token")?.value;
-    if (!token) {
+    await connectToDatabase();
+
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
-    } catch (error) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    await connectToDatabase();
 
     const { searchParams } = new URL(request.url);
     const familyId = searchParams.get("familyId");
@@ -30,7 +30,7 @@ export async function GET(request) {
     }
 
     // Check if user belongs to this family
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById(auth.userId);
     const hasAccess = user.families?.some(f => f.familyId.toString() === familyId);
     
     if (!hasAccess && user.role !== "admin") {
@@ -58,19 +58,12 @@ export async function GET(request) {
 // POST - Add a new family member
 export async function POST(request) {
   try {
-    const token = request.cookies.get("token")?.value;
-    if (!token) {
+    await connectToDatabase();
+
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
-    } catch (error) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
-    await connectToDatabase();
 
     const body = await request.json();
     const {
@@ -84,6 +77,7 @@ export async function POST(request) {
       knownConditions = [],
       allergies = [],
       emergencyContact = {},
+      avatarBase64 = null,
     } = body;
 
     if (!familyId || !name || !relationship || !dateOfBirth || !gender) {
@@ -94,7 +88,7 @@ export async function POST(request) {
     }
 
     // Check if user has access to this family
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById(auth.userId);
     const hasAccess = user.families?.some(f => f.familyId.toString() === familyId);
     
     if (!hasAccess && user.role !== "admin") {
@@ -128,67 +122,90 @@ export async function POST(request) {
     }
 
     // Find user by email if provided
-    let userId = null;
+    let memberUserId = null;
     if (email) {
       const existingUser = await User.findOne({ email: email.toLowerCase() });
       if (existingUser) {
-        userId = existingUser._id;
+        memberUserId = existingUser._id;
       }
     }
 
     // Generate avatar color
     const avatarColors = [
       "#EF4444", "#F59E0B", "#10B981", "#3B82F6", 
-      "#8B5CF6", "#EC4899", "#14B8A6", "#F97316",
-      "#6366F1", "#84CC16", "#06B6D4", "#D946EF"
+      "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"
     ];
-    const avatarColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
+    const randomColor = avatarColors[Math.floor(Math.random() * avatarColors.length)];
 
-    // Create member using model
-    const member = await FamilyMember.create({
+    // Handle image upload if provided
+    let uploadedAvatarUrl = null;
+    if (avatarBase64) {
+      try {
+        const uploadRes = await cloudinary.uploader.upload(avatarBase64, {
+          folder: "health-reminder/avatars",
+        });
+        uploadedAvatarUrl = uploadRes.secure_url;
+      } catch (err) {
+        console.error("Cloudinary upload error:", err);
+      }
+    }
+
+    const memberData = {
       familyId,
-      userId,
+      userId: memberUserId,
       name,
       relationship,
       dateOfBirth: new Date(dateOfBirth),
       gender,
-      bloodGroup: bloodGroup || undefined,
-      avatarColor,
+      avatarColor: randomColor,
+      avatarUrl: uploadedAvatarUrl,
       knownConditions,
       allergies,
       emergencyContact,
       isPrimary: false,
       isActive: true,
-    });
+    };
 
-    // Add to family's members array
+    if (bloodGroup) {
+      memberData.bloodGroup = bloodGroup;
+    }
+
+    const member = await FamilyMember.create(memberData);
+
+    // Add to family's members list
     family.members.push(member._id);
     await family.save();
 
-    // If user exists, add family to user's families
-    if (userId) {
-      await User.findByIdAndUpdate(userId, {
-        $push: {
-          families: {
-            familyId: family._id,
-            role: "member",
-            joinedAt: new Date(),
-          }
+    // If a user account was linked, associate family with that user as well
+    if (memberUserId) {
+      const linkedUser = await User.findById(memberUserId);
+      if (linkedUser) {
+        if (!linkedUser.families) {
+          linkedUser.families = [];
         }
-      });
+        const alreadyLinked = linkedUser.families.some(f => f.familyId.toString() === familyId);
+        if (!alreadyLinked) {
+          linkedUser.families.push({
+            familyId,
+            role: "member",
+            joinedAt: new Date()
+          });
+          if (!linkedUser.activeFamilyId) {
+            linkedUser.activeFamilyId = familyId;
+          }
+          await linkedUser.save();
+        }
+      }
     }
 
     return NextResponse.json(
-      { 
-        message: "Family member added successfully",
-        member 
-      },
+      { message: "Family member added successfully", member },
       { status: 201 }
     );
   } catch (error) {
     console.error("Error adding family member:", error);
     return NextResponse.json(
-      { error: "Failed to add family member" },
+      { error: "Failed to add family member", details: error.message },
       { status: 500 }
     );
   }

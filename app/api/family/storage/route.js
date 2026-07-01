@@ -2,18 +2,17 @@ import { NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/dbConnect';
 import Family from '@/models/Family';
 import User from '@/models/User';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { getAuthenticatedUser } from '@/lib/auth';
 
 // GET - Get family storage usage
 export async function GET(request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session) {
+    await connectToDatabase();
+
+    const auth = await getAuthenticatedUser(request);
+    if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    await connectToDatabase();
 
     const { searchParams } = new URL(request.url);
     const familyId = searchParams.get('familyId');
@@ -26,7 +25,7 @@ export async function GET(request) {
     }
 
     // Check if user belongs to this family
-    const user = await User.findById(session.user.id);
+    const user = await User.findById(auth.userId);
     const hasAccess = user.families.some(f => f.familyId.toString() === familyId);
     
     if (!hasAccess && user.role !== 'admin') {
