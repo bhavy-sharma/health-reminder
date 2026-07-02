@@ -50,9 +50,7 @@ const Sidebar = () => {
         { icon: Stethoscope, label: 'Doctor Visit Prep', href: '/doctor-visit' },
         { icon: Search, label: 'Find Doctors', href: '/find-doctors' },
         { icon: Users, label: 'Family Members', href: '/family-members' },
-        { icon: Activity, label: 'Health Insights', href: '/health-insights' },
-        { icon: Sparkles, label: 'Beta', href: '/beta', badge: 'BETA' },
-        { icon: Settings, label: 'Settings', href: '/settings' },
+
     ];
 
     useEffect(() => {
@@ -147,30 +145,30 @@ const Sidebar = () => {
     }, [isMobile, isOpen]);
 
     const sidebarContent = (
-        <div className="flex flex-col h-full bg-[#0D1B2A] text-white">
+        <div className="flex flex-col h-full bg-gradient-to-b from-[#0B1F4D] to-[#040D21] text-white">
             {/* Header */}
-            <div className="p-6 border-b border-slate-800">
+            <div className="p-6 border-b border-white/10">
                 <div>
-                    <h2 className="text-xs font-semibold text-blue-300 uppercase tracking-wider">Family Health</h2>
-                    <div className="flex items-center gap-2 mt-1">
-                        <h1 className="text-sm font-semibold text-slate-100">
+                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded">Family Health</span>
+                    <div className="flex items-center gap-2 mt-3">
+                        <h1 className="text-base font-bold text-white tracking-tight">
                             {loading ? 'Loading...' : familyData.familyName}
                         </h1>
-                        <ChevronDown className="w-3.5 h-3.5 text-blue-300" />
+                        <ChevronDown className="w-4 h-4 text-blue-300" />
                     </div>
                 </div>
 
-                <div className="mt-4 flex items-center -space-x-2">
+                <div className="mt-5 flex items-center -space-x-1.5">
                     {loading ? (
                         <div className="flex items-center gap-2">
-                            <Loader2 className="w-4 h-4 text-blue-300 animate-spin" />
-                            <span className="text-xs text-slate-400">Loading members...</span>
+                            <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin" />
+                            <span className="text-xs text-blue-200/60">Loading members...</span>
                         </div>
                     ) : (
                         displayMembers.map((member, index) => (
                             <div
                                 key={index}
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${member.color} border-2 border-[#0D1B2A] shadow-sm`}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${member.color} border-2 border-[#0B1F4D] shadow-md transition-transform hover:scale-110`}
                                 title={member.name}
                             >
                                 {member.initial}
@@ -181,26 +179,24 @@ const Sidebar = () => {
             </div>
 
             {/* Nav Items */}
-            <nav className="flex-1 px-3 py-4 overflow-y-auto">
-                <ul className="space-y-1">
+            <nav className="flex-1 px-4 py-6 overflow-y-auto space-y-1">
+                <ul className="space-y-1.5">
                     {menuItems.map((item, index) => {
                         const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
                         return (
                             <li key={index}>
                                 <Link
                                     href={item.href}
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                                        isActive
-                                            ? 'bg-white text-gray-900 font-semibold shadow-md'
-                                            : 'text-slate-300 hover:bg-white/5 hover:text-white'
-                                    } ${item.badge ? 'relative' : ''}`}
+                                    className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-300 font-medium ${isActive
+                                            ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/25'
+                                            : 'text-blue-100/70 hover:bg-white/5 hover:text-white hover:pl-5'
+                                        } ${item.badge ? 'relative' : ''}`}
                                 >
-                                    <item.icon className={`w-5 h-5 ${isActive ? 'text-gray-900' : 'text-blue-300'}`} />
+                                    <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-blue-400'}`} />
                                     <span className="flex-1 text-sm">{item.label}</span>
                                     {item.badge && (
-                                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
-                                            isActive ? 'bg-purple-600 text-white' : 'text-purple-300 bg-purple-950 border border-purple-800'
-                                        }`}>
+                                        <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full ${isActive ? 'bg-white text-blue-900' : 'text-blue-300 bg-blue-950/50 border border-blue-900'
+                                            }`}>
                                             {item.badge}
                                         </span>
                                     )}
@@ -212,18 +208,18 @@ const Sidebar = () => {
             </nav>
 
             {/* Storage + Bottom Buttons */}
-            <div className="p-4 border-t border-slate-800 space-y-3 bg-[#0a1520]">
+            <div className="p-5 border-t border-white/10 space-y-4 bg-black/20">
                 {/* Storage bar */}
-                <div className="bg-white/5 rounded-xl p-4 border border-slate-800/50">
+                <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
                     <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-xs font-semibold text-slate-300">{familyData.plan}</h3>
-                        <span className="text-[10px] text-slate-400 font-medium">
-                          {familyData.storageUsed} GB / {familyData.storageTotal} GB
+                        <h3 className="text-xs font-bold text-blue-200">{familyData.plan}</h3>
+                        <span className="text-[10px] text-blue-300/80 font-semibold">
+                            {familyData.storageUsed} GB / {familyData.storageTotal} GB
                         </span>
                     </div>
-                    <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
                         <div
-                            className="h-full bg-blue-400 rounded-full transition-all duration-300"
+                            className="h-full bg-gradient-to-r from-blue-400 to-blue-500 rounded-full transition-all duration-500"
                             style={{ width: `${Math.min((familyData.storageUsed / familyData.storageTotal) * 100, 100)}%` }}
                         />
                     </div>
@@ -232,24 +228,24 @@ const Sidebar = () => {
                 {/* Go to Homepage */}
                 <Link
                     href="/"
-                    className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-slate-300 hover:bg-white/5 hover:text-white transition-all duration-200 w-full"
+                    className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-blue-100/70 hover:bg-white/5 hover:text-white hover:pl-5 transition-all duration-300 w-full"
                 >
-                    <Home className="w-5 h-5 text-blue-300" />
-                    <span className="text-sm font-medium">Go to Homepage</span>
+                    <Home className="w-5 h-5 text-blue-400" />
+                    <span className="text-sm font-semibold">Go to Homepage</span>
                 </Link>
 
                 {/* Logout */}
                 <button
                     onClick={handleLogout}
                     disabled={loggingOut}
-                    className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-all duration-200 w-full disabled:opacity-50"
+                    className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 hover:pl-5 transition-all duration-300 w-full disabled:opacity-50 text-left cursor-pointer"
                 >
                     {loggingOut ? (
-                        <Loader2 className="w-5 h-5 animate-spin text-red-400" />
+                        <Loader2 className="w-5 h-5 animate-spin text-rose-400" />
                     ) : (
-                        <LogOut className="w-5 h-5 text-red-400" />
+                        <LogOut className="w-5 h-5 text-rose-400" />
                     )}
-                    <span className="text-sm font-medium">{loggingOut ? 'Logging out...' : 'Log Out'}</span>
+                    <span className="text-sm font-semibold">{loggingOut ? 'Logging out...' : 'Log Out'}</span>
                 </button>
             </div>
         </div>
@@ -277,9 +273,8 @@ const Sidebar = () => {
 
             <aside
                 id="sidebar"
-                className={`w-[280px] h-screen bg-[#0D1B2A] border-r border-slate-800 flex flex-col fixed left-0 top-0 z-40 shadow-xl transition-transform duration-300 ease-in-out ${
-                    isMobile ? (isOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'
-                }`}
+                className={`w-[280px] h-screen bg-[#0D1B2A] border-r border-slate-800 flex flex-col fixed left-0 top-0 z-40 shadow-xl transition-transform duration-300 ease-in-out ${isMobile ? (isOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'
+                    }`}
             >
                 {sidebarContent}
             </aside>
