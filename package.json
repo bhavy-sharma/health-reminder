@@ -13,7 +13,7 @@
     "cloudinary": "^2.10.0",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.22.0",
-    "mongoose": "^9.7.3",
+    "mongoose": "^8.24.1",
     "next": "16.2.9",
     "next-auth": "^4.24.14",
     "nodemailer": "^9.0.1",
