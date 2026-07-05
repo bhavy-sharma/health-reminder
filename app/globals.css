@@ -1,18 +1,95 @@
+
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Primary Colors */
+  --cream: #f7f4ef;
+  --navy: #0d1b2a;
+  --pulse-red: #e8403a;
+  --sage-green: #4a9e7f;
+  --warm-amber: #e9a84c;
+
+  /* Surface Colors */
+  --surface-white: #ffffff;
+  --surface-secondary: #ede9e2;
+
+  /* Text Colors */
+  --text-primary: #0d1b2a;
+  --text-secondary: #4a5568;
+  --text-muted: #8a96a3;
+
+  /* Border */
+  --border-color: rgba(13, 27, 42, 0.1);
+
+  /* Status Fill Backgrounds */
+  --success-fill: #e6f4ef;
+  --danger-fill: #fef2f2;
+  --warning-fill: #fef9ec;
+
+  /* Integrations */
+  --whatsapp-green: #25d366;
+
+  /* Doctor Portal */
+  --doctor-sidebar: #0d1b2a;
+  --doctor-sidebar-active: rgba(255, 255, 255, 0.15);
+  --doctor-sidebar-text: rgba(255, 255, 255, 0.5);
+
+  /* Shadows */
+  --shadow-subtle: 0 1px 3px rgba(13, 27, 42, 0.08);
+  --shadow-medium: 0 4px 16px rgba(13, 27, 42, 0.1);
+  --shadow-strong: 0 8px 32px rgba(13, 27, 42, 0.14);
+
+  /* Border Radius */
+  --radius-input: 6px;
+  --radius-card-sm: 8px;
+  --radius-card-md: 12px;
+  --radius-card-lg: 16px;
+  --radius-modal: 24px;
+  --radius-pill: 999px;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans), system-ui, sans-serif;
+  --font-fraunces: 'Fraunces', serif;
+  --font-inter: 'Inter', sans-serif;
+  --font-sans: var(--font-inter);
+
+  --color-cream: var(--cream);
+  --color-navy: var(--navy);
+  --color-pulse-red: var(--pulse-red);
+  --color-sage-green: var(--sage-green);
+  --color-warm-amber: var(--warm-amber);
+  --color-surface-white: var(--surface-white);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border: var(--border-color);
+  --color-success-fill: var(--success-fill);
+  --color-danger-fill: var(--danger-fill);
+  --color-warning-fill: var(--warning-fill);
+  --color-whatsapp-green: var(--whatsapp-green);
+  --color-doctor-sidebar: var(--doctor-sidebar);
+  --color-doctor-sidebar-active: var(--doctor-sidebar-active);
+  --color-doctor-sidebar-text: var(--doctor-sidebar-text);
+
+  --shadow-subtle: var(--shadow-subtle);
+  --shadow-medium: var(--shadow-medium);
+  --shadow-strong: var(--shadow-strong);
+
+  --radius-input: var(--radius-input);
+  --radius-card-sm: var(--radius-card-sm);
+  --radius-card-md: var(--radius-card-md);
+  --radius-card-lg: var(--radius-card-lg);
+  --radius-modal: var(--radius-modal);
+  --radius-pill: var(--radius-pill);
 }
 
 body {
-  background: #F8FAFC;
-  color: #111827;
-  font-family: var(--font-sans);
+  background-color: var(--cream);
+  color: var(--text-primary);
+  font-family: var(--font-inter);
+}
+
+input, button, select, textarea {
+  font-family: var(--font-inter);
 }
