@@ -35,13 +35,7 @@ export async function POST(request) {
       );
     }
 
-    // Force role check (keep all role patient in backend)
-    if (user.role !== "patient") {
-      return NextResponse.json(
-        { error: "Access denied. Only patients can log in here." },
-        { status: 403 }
-      );
-    }
+    
 
     // Create token
     const token = jwt.sign(

@@ -16,9 +16,13 @@ import {
   Shield,
   Activity,
   HeartPulse,
+  CheckCircle,
+  AlertCircle,
+  UserX,
 } from 'lucide-react';
 import Sidebar from './Sidebar';
 import Link from 'next/link';
+import toast, { Toaster } from 'react-hot-toast';
 
 const colorMap = {
   '#EF4444': 'bg-red-500',
@@ -67,6 +71,96 @@ const initialFormState = {
 
 const isProfileIncomplete = (m) => m.isPrimary && (!m.bloodGroup || new Date(m.dateOfBirth).getFullYear() === 2000);
 
+// Toast helper functions
+const showSuccessToast = (message) => {
+  toast.custom((t) => (
+    <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-2xl pointer-events-auto flex border border-emerald-100`}>
+      <div className="flex-1 p-4 flex items-center gap-3">
+        <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+        <p className="text-sm font-bold text-gray-900">{message}</p>
+      </div>
+      <button onClick={() => toast.dismiss(t.id)} className="p-4 flex items-center justify-center text-gray-400 hover:text-gray-500 border-l border-gray-100">
+        <X className="w-5 h-5" />
+      </button>
+    </div>
+  ), { duration: 3000 });
+};
+
+const showErrorToast = (message) => {
+  toast.custom((t) => (
+    <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-2xl pointer-events-auto flex border border-rose-100`}>
+      <div className="flex-1 p-4 flex items-center gap-3">
+        <AlertCircle className="w-5 h-5 text-rose-500 flex-shrink-0" />
+        <p className="text-sm font-bold text-gray-900">{message}</p>
+      </div>
+      <button onClick={() => toast.dismiss(t.id)} className="p-4 flex items-center justify-center text-gray-400 hover:text-gray-500 border-l border-gray-100">
+        <X className="w-5 h-5" />
+      </button>
+    </div>
+  ), { duration: 4000 });
+};
+
+const showAuthErrorToast = (message, errorType) => {
+  let icon = AlertCircle;
+  let borderColor = 'border-rose-100';
+  let iconColor = 'text-rose-500';
+  let title = 'Authentication Error';
+
+  if (errorType === 'suspended') {
+    icon = UserX;
+    borderColor = 'border-amber-100';
+    iconColor = 'text-amber-500';
+    title = 'Account Suspended';
+  } else if (errorType === 'role') {
+    icon = Shield;
+    borderColor = 'border-rose-100';
+    iconColor = 'text-rose-500';
+    title = 'Access Denied';
+  }
+
+  toast.custom((t) => (
+    <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-2xl pointer-events-auto flex border ${borderColor}`}>
+      <div className="flex-1 p-4 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
+          <icon className={`w-5 h-5 ${iconColor}`} />
+        </div>
+        <div>
+          <p className="text-sm font-bold text-gray-900">{title}</p>
+          <p className="text-xs text-gray-600 mt-0.5">{message}</p>
+        </div>
+      </div>
+      <button onClick={() => toast.dismiss(t.id)} className="p-4 flex items-center justify-center text-gray-400 hover:text-gray-500 border-l border-gray-100">
+        <X className="w-5 h-5" />
+      </button>
+    </div>
+  ), { duration: 5000 });
+};
+
+const handleAuthError = (error, defaultMessage) => {
+  if (error.message?.includes('suspended') || error.message?.includes('Account suspended')) {
+    showAuthErrorToast(
+      error.reason || 'Your account has been suspended. Please contact support.',
+      'suspended'
+    );
+    return;
+  }
+  if (error.message?.includes('role') || error.message?.includes('patient')) {
+    showAuthErrorToast(
+      'Only patients can access family members. Please contact support if you believe this is an error.',
+      'role'
+    );
+    return;
+  }
+  if (error.status === 401) {
+    showAuthErrorToast(
+      'Please login to continue.',
+      'auth'
+    );
+    return;
+  }
+  showErrorToast(error.message || defaultMessage);
+};
+
 export default function FamilyMembers() {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -93,6 +187,24 @@ export default function FamilyMembers() {
       setLoading(true);
       setError(null);
       const res = await fetch('/api/user/profile');
+      
+      if (res.status === 401) {
+        showAuthErrorToast('Please login to continue.', 'auth');
+        setLoading(false);
+        return;
+      }
+
+      if (res.status === 403) {
+        const data = await res.json();
+        if (data.error?.includes('suspended')) {
+          showAuthErrorToast(data.reason || 'Your account has been suspended.', 'suspended');
+        } else {
+          showAuthErrorToast('You do not have permission to access family members.', 'role');
+        }
+        setLoading(false);
+        return;
+      }
+
       if (!res.ok) throw new Error('Failed to fetch user profile');
       const data = await res.json();
       
@@ -109,6 +221,22 @@ export default function FamilyMembers() {
 
         // Fetch family members
         const membersRes = await fetch(`/api/family/members?familyId=${id}`);
+        
+        if (membersRes.status === 401) {
+          showAuthErrorToast('Please login to continue.', 'auth');
+          return;
+        }
+
+        if (membersRes.status === 403) {
+          const errData = await membersRes.json();
+          if (errData.error?.includes('suspended')) {
+            showAuthErrorToast(errData.reason || 'Your account has been suspended.', 'suspended');
+          } else {
+            showAuthErrorToast('Only patients can access family members.', 'role');
+          }
+          return;
+        }
+
         if (!membersRes.ok) throw new Error('Failed to fetch family members');
         const membersData = await membersRes.json();
         setMembers(membersData.members || []);
@@ -118,6 +246,7 @@ export default function FamilyMembers() {
     } catch (err) {
       console.error('Error fetching family data:', err);
       setError(err.message);
+      handleAuthError(err, 'Failed to load family data');
     } finally {
       setLoading(false);
     }
@@ -135,14 +264,31 @@ export default function FamilyMembers() {
       });
 
       const data = await res.json();
+
+      if (res.status === 401) {
+        showAuthErrorToast('Please login to continue.', 'auth');
+        return;
+      }
+
+      if (res.status === 403) {
+        if (data.error?.includes('suspended')) {
+          showAuthErrorToast(data.reason || 'Your account has been suspended.', 'suspended');
+        } else {
+          showAuthErrorToast('Only patients can create a family.', 'role');
+        }
+        return;
+      }
+
       if (!res.ok) throw new Error(data.details || data.error || 'Failed to create family');
 
+      showSuccessToast('Family group created successfully!');
       setShowCreateFamilyModal(false);
       setFamilyName('');
       await fetchFamilyMembers();
     } catch (err) {
       console.error('Error creating family:', err);
       setError(err.message);
+      handleAuthError(err, 'Failed to create family');
     } finally {
       setCreatingFamily(false);
     }
@@ -154,13 +300,13 @@ export default function FamilyMembers() {
     setError(null);
 
     if (!formData.name || !formData.relationship || !formData.dateOfBirth || !formData.gender) {
-      setError('Please fill in all required fields');
+      showErrorToast('Please fill in all required fields');
       setSubmitting(false);
       return;
     }
 
     if (!isEdit && !familyId) {
-      setError('No family group found. Please create one first.');
+      showErrorToast('No family group found. Please create one first.');
       setShowCreateFamilyModal(true);
       setSubmitting(false);
       return;
@@ -195,7 +341,24 @@ export default function FamilyMembers() {
       });
       
       const data = await res.json();
+
+      if (res.status === 401) {
+        showAuthErrorToast('Please login to continue.', 'auth');
+        return;
+      }
+
+      if (res.status === 403) {
+        if (data.error?.includes('suspended')) {
+          showAuthErrorToast(data.reason || 'Your account has been suspended.', 'suspended');
+        } else {
+          showAuthErrorToast('Only patients can manage family members.', 'role');
+        }
+        return;
+      }
+
       if (!res.ok) throw new Error(data.error || `Failed to ${isEdit ? 'update' : 'add'} member`);
+      
+      showSuccessToast(`Family member ${isEdit ? 'updated' : 'added'} successfully!`);
       
       await fetchFamilyMembers();
       setShowAddModal(false);
@@ -206,23 +369,66 @@ export default function FamilyMembers() {
     } catch (err) {
       console.error('Error submitting form:', err);
       setError(err.message);
+      handleAuthError(err, `Failed to ${isEdit ? 'update' : 'add'} member`);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Remove this family member?')) return;
-    try {
-      setLoading(true);
-      const res = await fetch(`/api/family/members/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Failed to delete');
-      await fetchFamilyMembers();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+    toast.custom((t) => (
+      <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-xl rounded-2xl pointer-events-auto flex flex-col border border-gray-100 overflow-hidden`}>
+        <div className="p-5">
+          <p className="text-base font-bold text-gray-900">Remove Family Member?</p>
+          <p className="text-sm text-gray-500 mt-1">This action cannot be undone.</p>
+        </div>
+        <div className="flex border-t border-gray-100 bg-slate-50">
+          <button
+            onClick={() => toast.dismiss(t.id)}
+            className="flex-1 py-3 text-sm font-bold text-gray-600 hover:text-gray-800 hover:bg-slate-100 transition-colors border-r border-gray-100 cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={async () => {
+              toast.dismiss(t.id);
+              try {
+                setLoading(true);
+                const res = await fetch(`/api/family/members/${id}`, { method: 'DELETE' });
+                
+                if (res.status === 401) {
+                  showAuthErrorToast('Please login to continue.', 'auth');
+                  return;
+                }
+
+                if (res.status === 403) {
+                  const data = await res.json();
+                  if (data.error?.includes('suspended')) {
+                    showAuthErrorToast(data.reason || 'Your account has been suspended.', 'suspended');
+                  } else {
+                    showAuthErrorToast('Only patients can delete family members.', 'role');
+                  }
+                  return;
+                }
+
+                if (!res.ok) throw new Error('Failed to delete');
+                
+                showSuccessToast('Family member removed successfully');
+                await fetchFamilyMembers();
+              } catch (err) {
+                setError(err.message);
+                handleAuthError(err, 'Failed to delete member');
+              } finally {
+                setLoading(false);
+              }
+            }}
+            className="flex-1 py-3 text-sm font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
+          >
+            Remove
+          </button>
+        </div>
+      </div>
+    ), { duration: 6000 });
   };
 
   const openEditModal = (member) => {
@@ -442,6 +648,7 @@ export default function FamilyMembers() {
 
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
+      <Toaster position="top-right" />
       <Sidebar />
       
       <main className="md:pl-[280px]">
@@ -585,7 +792,7 @@ export default function FamilyMembers() {
                              Edit Profile
                            </button>
                            {!selectedViewMember.isPrimary && (
-                             <button onClick={() => { handleDelete(selectedViewMember._id); setSelectedViewMember(null); }} className="px-5 py-2.5 bg-red-50 text-red-600 font-medium text-sm rounded-lg hover:bg-red-100 transition flex items-center gap-2">
+                             <button onClick={() => { handleDelete(selectedViewMember._id); }} className="px-5 py-2.5 bg-red-50 text-red-600 font-medium text-sm rounded-lg hover:bg-red-100 transition flex items-center gap-2">
                                <Trash2 className="w-4 h-4" /> Remove
                              </button>
                            )}

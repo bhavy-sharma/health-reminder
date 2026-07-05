@@ -3,7 +3,7 @@ import { connectToDatabase } from "@/lib/db";
 import HealthRecord from "@/models/HealthRecord";
 import Family from "@/models/Family";
 import User from "@/models/User";
-import jwt from "jsonwebtoken";
+import { getAuthenticatedUser } from "@/lib/auth";
 import { v2 as cloudinary } from "cloudinary";
 
 // Configure Cloudinary
@@ -15,19 +15,49 @@ cloudinary.config({
 
 export async function POST(request) {
   try {
-    const token = request.cookies.get("token")?.value;
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
-    } catch (error) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-    }
-
     await connectToDatabase();
+
+    // 1. Get authenticated user using the helper
+    const auth = await getAuthenticatedUser(request);
+    
+    // 2. Check authentication
+    if (!auth || !auth.authenticated) {
+      if (auth?.isSuspended) {
+        return NextResponse.json(
+          { 
+            error: "Account suspended", 
+            reason: auth.suspendedReason || "Contact support" 
+          }, 
+          { status: 403 }
+        );
+      }
+      return NextResponse.json(
+        { error: "Please login to continue" }, 
+        { status: 401 }
+      );
+    }
+
+    // 3. Check suspension
+    if (auth.isSuspended) {
+      return NextResponse.json(
+        { 
+          error: "Account suspended", 
+          reason: auth.suspendedReason || "Contact support" 
+        }, 
+        { status: 403 }
+      );
+    }
+
+    // 4. Check role - ONLY PATIENTS can upload health records
+    if (auth.role !== 'patient') {
+      return NextResponse.json(
+        { 
+          error: "Access denied", 
+          message: "Only patients can upload health records" 
+        }, 
+        { status: 403 }
+      );
+    }
 
     const formData = await request.formData();
     const file = formData.get("file");
@@ -64,7 +94,7 @@ export async function POST(request) {
     }
 
     // Check if user has access to this family
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById(auth.userId);
     const hasAccess = user.families?.some(f => f.familyId.toString() === familyId);
     
     if (!hasAccess && user.role !== "admin") {
@@ -95,7 +125,7 @@ export async function POST(request) {
       cloudinary.uploader.upload_stream(
         {
           folder: `health-records/${familyId}`,
-          resource_type: resourceType,  // "raw" for PDF, "image" for images
+          resource_type: resourceType,
           type: "upload",
           access_mode: "public",
         },

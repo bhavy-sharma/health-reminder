@@ -2,25 +2,64 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, UserCog, Stethoscope } from "lucide-react";
 
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for auth token cookie
     const checkAuth = async () => {
       try {
         const res = await fetch('/api/auth/me');
         if (res.ok) {
+          const data = await res.json();
           setIsLoggedIn(true);
+          setUserRole(data?.user?.role || 'patient');
+        } else {
+          setIsLoggedIn(false);
+          setUserRole(null);
         }
       } catch {
         setIsLoggedIn(false);
+        setUserRole(null);
+      } finally {
+        setLoading(false);
       }
     };
     checkAuth();
   }, []);
+
+  const getDashboardLink = () => {
+    if (userRole === 'admin') {
+      return '/admin/overview';
+    }
+    if (userRole === 'doctor') {
+      return '/doctor/dashboard';
+    }
+    return '/dashboard';
+  };
+
+  const getDashboardIcon = () => {
+    if (userRole === 'admin') {
+      return <UserCog className="w-4 h-4" />;
+    }
+    if (userRole === 'doctor') {
+      return <Stethoscope className="w-4 h-4" />;
+    }
+    return <LayoutDashboard className="w-4 h-4" />;
+  };
+
+  const getDashboardLabel = () => {
+    if (userRole === 'admin') {
+      return 'Admin Dashboard';
+    }
+    if (userRole === 'doctor') {
+      return 'Doctor Dashboard';
+    }
+    return 'Go to Dashboard';
+  };
 
   return (
     <nav className="flex items-center justify-between px-8 py-4 border-b border-gray-200 bg-[#FAF8F5]">
@@ -50,13 +89,15 @@ export default function Navbar() {
 
       {/* CTA Buttons */}
       <div className="hidden md:flex items-center gap-3">
-        {isLoggedIn ? (
+        {loading ? (
+          <div className="w-24 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+        ) : isLoggedIn ? (
           <Link
-            href="/dashboard"
+            href={getDashboardLink()}
             className="flex items-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
           >
-            <LayoutDashboard className="w-4 h-4" />
-            Go to Dashboard
+            {getDashboardIcon()}
+            {getDashboardLabel()}
           </Link>
         ) : (
           <>

@@ -39,7 +39,17 @@ export default function LoginPage() {
         throw new Error(data.error || "Invalid login credentials");
       }
 
-      router.push("/dashboard");
+      // Redirect based on role
+      const userRole = data.user?.role || data.role;
+      
+      if (userRole === 'admin' || userRole === 'staff') {
+        router.push("/admin/overview");
+      } else if (userRole === 'doctor') {
+        router.push("/doctor/dashboard");
+      } else {
+        // Default to patient dashboard
+        router.push("/dashboard");
+      }
     } catch (err) {
       setError(err.message);
     } finally {

@@ -10,15 +10,64 @@ import { getAuthenticatedUser } from "@/lib/auth";
 export async function GET(request) {
   try {
     await connectToDatabase();
+    
+    // 1. Get authenticated user
     const auth = await getAuthenticatedUser(request);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    
+    // 2. Check authentication
+    if (!auth || !auth.authenticated) {
+      if (auth?.isSuspended) {
+        return NextResponse.json(
+          { 
+            error: "Account suspended", 
+            reason: auth.suspendedReason || "Contact support" 
+          }, 
+          { status: 403 }
+        );
+      }
+      return NextResponse.json(
+        { error: "Please login to continue" }, 
+        { status: 401 }
+      );
+    }
+
+    // 3. Check suspension
+    if (auth.isSuspended) {
+      return NextResponse.json(
+        { 
+          error: "Account suspended", 
+          reason: auth.suspendedReason || "Contact support" 
+        }, 
+        { status: 403 }
+      );
+    }
+
+    // 4. Check role - ONLY PATIENTS can access medicine reminders
+    if (auth.role !== 'patient') {
+      return NextResponse.json(
+        { 
+          error: "Access denied", 
+          message: "Only patients can access medicine reminders" 
+        }, 
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
     const familyId = searchParams.get("familyId");
     if (!familyId) {
       return NextResponse.json({ error: "Family ID is required" }, { status: 400 });
+    }
+
+    // Check if user belongs to this family
+    const user = await User.findById(auth.userId);
+    const hasAccess = user.families?.some(f => f.familyId.toString() === familyId);
+    
+    if (!hasAccess && user.role !== "admin") {
+      return NextResponse.json(
+        { error: "You do not have access to this family" },
+        { status: 403 }
+      );
     }
 
     // 1. Fetch active reminders
@@ -63,9 +112,47 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     await connectToDatabase();
+    
+    // 1. Get authenticated user
     const auth = await getAuthenticatedUser(request);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    
+    // 2. Check authentication
+    if (!auth || !auth.authenticated) {
+      if (auth?.isSuspended) {
+        return NextResponse.json(
+          { 
+            error: "Account suspended", 
+            reason: auth.suspendedReason || "Contact support" 
+          }, 
+          { status: 403 }
+        );
+      }
+      return NextResponse.json(
+        { error: "Please login to continue" }, 
+        { status: 401 }
+      );
+    }
+
+    // 3. Check suspension
+    if (auth.isSuspended) {
+      return NextResponse.json(
+        { 
+          error: "Account suspended", 
+          reason: auth.suspendedReason || "Contact support" 
+        }, 
+        { status: 403 }
+      );
+    }
+
+    // 4. Check role - ONLY PATIENTS can create medicine reminders
+    if (auth.role !== 'patient') {
+      return NextResponse.json(
+        { 
+          error: "Access denied", 
+          message: "Only patients can create medicine reminders" 
+        }, 
+        { status: 403 }
+      );
     }
 
     const body = await request.json();
@@ -91,6 +178,26 @@ export async function POST(request) {
 
     if (!familyId || !memberId || !medicineName || !dosage || !startDate || !endDate || !reminderTime) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Check if user has access to this family
+    const user = await User.findById(auth.userId);
+    const hasAccess = user.families?.some(f => f.familyId.toString() === familyId);
+    
+    if (!hasAccess && user.role !== "admin") {
+      return NextResponse.json(
+        { error: "You do not have access to this family" },
+        { status: 403 }
+      );
+    }
+
+    // Verify the member belongs to this family
+    const member = await FamilyMember.findOne({ _id: memberId, familyId, isActive: true });
+    if (!member) {
+      return NextResponse.json(
+        { error: "Member not found or does not belong to this family" },
+        { status: 404 }
+      );
     }
 
     const newReminder = await MedicineReminder.create({

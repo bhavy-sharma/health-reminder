@@ -26,8 +26,24 @@ const UserSchema = new mongoose.Schema(
     },
     role: {
       type: String,
+      required: [true, "Role is required"],
       default: "patient",
       enum: ["patient", "doctor", "admin"],
+    },
+    isSuspended: {
+      type: Boolean,
+      default: false,
+    },
+    suspendedReason: {
+      type: String,
+      trim: true,
+    },
+    suspendedAt: {
+      type: Date,
+    },
+    suspendedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
     },
     activeFamilyId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -90,5 +106,7 @@ const UserSchema = new mongoose.Schema(
 UserSchema.index({ mobile: 1 });
 UserSchema.index({ email: 1 });
 UserSchema.index({ "families.familyId": 1 });
+UserSchema.index({ role: 1 });
+UserSchema.index({ isSuspended: 1 });
 
 export default mongoose.models.User || mongoose.model("User", UserSchema);

@@ -20,7 +20,9 @@ import {
     LayoutGrid,
     List,
     Calendar,
-    Filter
+    Filter,
+    Shield,
+    UserX
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import Sidebar from './Sidebar';
@@ -42,6 +44,71 @@ function RecordIcon({ type }) {
         </div>
     );
 }
+
+// Toast helper functions
+const showSuccessToast = (message) => {
+    toast.custom((t) => (
+        <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-2xl pointer-events-auto flex border border-emerald-100`}>
+            <div className="flex-1 p-4 flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                <p className="text-sm font-bold text-gray-900">{message}</p>
+            </div>
+            <button onClick={() => toast.dismiss(t.id)} className="p-4 flex items-center justify-center text-gray-400 hover:text-gray-500 border-l border-gray-100">
+                <X className="w-5 h-5" />
+            </button>
+        </div>
+    ), { duration: 3000 });
+};
+
+const showErrorToast = (message) => {
+    toast.custom((t) => (
+        <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-2xl pointer-events-auto flex border border-rose-100`}>
+            <div className="flex-1 p-4 flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 text-rose-500 flex-shrink-0" />
+                <p className="text-sm font-bold text-gray-900">{message}</p>
+            </div>
+            <button onClick={() => toast.dismiss(t.id)} className="p-4 flex items-center justify-center text-gray-400 hover:text-gray-500 border-l border-gray-100">
+                <X className="w-5 h-5" />
+            </button>
+        </div>
+    ), { duration: 4000 });
+};
+
+const showAuthErrorToast = (message, errorType) => {
+    let icon = AlertCircle;
+    let borderColor = 'border-rose-100';
+    let iconColor = 'text-rose-500';
+    let title = 'Authentication Error';
+
+    if (errorType === 'suspended') {
+        icon = UserX;
+        borderColor = 'border-amber-100';
+        iconColor = 'text-amber-500';
+        title = 'Account Suspended';
+    } else if (errorType === 'role') {
+        icon = Shield;
+        borderColor = 'border-rose-100';
+        iconColor = 'text-rose-500';
+        title = 'Access Denied';
+    }
+
+    toast.custom((t) => (
+        <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-2xl pointer-events-auto flex border ${borderColor}`}>
+            <div className="flex-1 p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
+                    <icon className={`w-5 h-5 ${iconColor}`} />
+                </div>
+                <div>
+                    <p className="text-sm font-bold text-gray-900">{title}</p>
+                    <p className="text-xs text-gray-600 mt-0.5">{message}</p>
+                </div>
+            </div>
+            <button onClick={() => toast.dismiss(t.id)} className="p-4 flex items-center justify-center text-gray-400 hover:text-gray-500 border-l border-gray-100">
+                <X className="w-5 h-5" />
+            </button>
+        </div>
+    ), { duration: 5000 });
+};
 
 export default function HealthRecordsPage() {
     const [activeCategory, setActiveCategory] = useState('All Records');
@@ -69,12 +136,56 @@ export default function HealthRecordsPage() {
         fetchData();
     }, []);
 
+    const handleAuthError = (error, defaultMessage) => {
+        // Check for specific error types
+        if (error.message?.includes('suspended') || error.message?.includes('Account suspended')) {
+            showAuthErrorToast(
+                error.reason || 'Your account has been suspended. Please contact support.',
+                'suspended'
+            );
+            return;
+        }
+        if (error.message?.includes('role') || error.message?.includes('patient')) {
+            showAuthErrorToast(
+                'Only patients can access health records. Please contact support if you believe this is an error.',
+                'role'
+            );
+            return;
+        }
+        if (error.status === 401) {
+            showAuthErrorToast(
+                'Please login to continue.',
+                'auth'
+            );
+            return;
+        }
+        showErrorToast(error.message || defaultMessage);
+    };
+
     const fetchData = async () => {
         try {
             setLoading(true);
             setError(null);
 
             const profileRes = await fetch('/api/user/profile');
+            
+            if (profileRes.status === 401) {
+                showAuthErrorToast('Please login to continue.', 'auth');
+                setLoading(false);
+                return;
+            }
+            
+            if (profileRes.status === 403) {
+                const data = await profileRes.json();
+                if (data.error?.includes('suspended')) {
+                    showAuthErrorToast(data.reason || 'Your account has been suspended.', 'suspended');
+                } else {
+                    showAuthErrorToast('You do not have permission to access this page.', 'role');
+                }
+                setLoading(false);
+                return;
+            }
+
             if (!profileRes.ok) throw new Error('Failed to fetch profile');
             const profileData = await profileRes.json();
 
@@ -93,7 +204,7 @@ export default function HealthRecordsPage() {
         } catch (err) {
             console.error('Error fetching data:', err);
             setError(err.message);
-            toast.error('Failed to load data');
+            handleAuthError(err, 'Failed to load data');
         } finally {
             setLoading(false);
         }
@@ -103,19 +214,39 @@ export default function HealthRecordsPage() {
         try {
             const url = `/api/health-records?familyId=${familyIdParam || familyId}`;
             const recordsRes = await fetch(url);
-            if (!recordsRes.ok) throw new Error('Failed to fetch records');
+            
+            if (recordsRes.status === 401) {
+                showAuthErrorToast('Please login to continue.', 'auth');
+                return;
+            }
+            
+            if (recordsRes.status === 403) {
+                const data = await recordsRes.json();
+                if (data.error?.includes('suspended')) {
+                    showAuthErrorToast(data.reason || 'Your account has been suspended.', 'suspended');
+                } else {
+                    showAuthErrorToast('Only patients can access health records.', 'role');
+                }
+                return;
+            }
+
+            if (!recordsRes.ok) {
+                const data = await recordsRes.json();
+                throw new Error(data.error || 'Failed to fetch records');
+            }
+            
             const data = await recordsRes.json();
             setRecords(data.records || []);
         } catch (err) {
             console.error('Error fetching records:', err);
-            toast.error('Failed to fetch records');
+            handleAuthError(err, 'Failed to fetch records');
         }
     };
 
     const handleUpload = async (e) => {
         e.preventDefault();
         if (!uploadForm.file) {
-            toast.error('Please select a file');
+            showErrorToast('Please select a file');
             return;
         }
 
@@ -138,22 +269,24 @@ export default function HealthRecordsPage() {
             });
 
             const data = await res.json();
+
+            if (res.status === 401) {
+                showAuthErrorToast('Please login to continue.', 'auth');
+                return;
+            }
+
+            if (res.status === 403) {
+                if (data.error?.includes('suspended')) {
+                    showAuthErrorToast(data.reason || 'Your account has been suspended.', 'suspended');
+                } else {
+                    showAuthErrorToast('Only patients can upload health records.', 'role');
+                }
+                return;
+            }
+
             if (!res.ok) throw new Error(data.error || 'Failed to upload');
 
-            toast.custom((t) => (
-                <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-2xl pointer-events-auto flex border border-emerald-100`}>
-                    <div className="flex-1 p-4 flex items-center gap-3">
-                        <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                        <p className="text-sm font-bold text-gray-900">Record uploaded successfully!</p>
-                    </div>
-                    <button
-                        onClick={() => toast.dismiss(t.id)}
-                        className="p-4 flex items-center justify-center text-gray-400 hover:text-gray-500 border-l border-gray-100"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-            ), { duration: 3000 });
+            showSuccessToast('Record uploaded successfully!');
 
             setUploadForm({
                 memberId: '',
@@ -167,20 +300,7 @@ export default function HealthRecordsPage() {
             await fetchRecords();
         } catch (err) {
             console.error('Error uploading:', err);
-            toast.custom((t) => (
-                <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-2xl pointer-events-auto flex border border-rose-100`}>
-                    <div className="flex-1 p-4 flex items-center gap-3">
-                        <AlertCircle className="w-5 h-5 text-rose-500 flex-shrink-0" />
-                        <p className="text-sm font-bold text-gray-900">{err.message || 'Failed to upload record'}</p>
-                    </div>
-                    <button
-                        onClick={() => toast.dismiss(t.id)}
-                        className="p-4 flex items-center justify-center text-gray-400 hover:text-gray-500 border-l border-gray-100"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-            ), { duration: 4000 });
+            handleAuthError(err, 'Failed to upload record');
         } finally {
             setUploading(false);
         }
@@ -205,11 +325,31 @@ export default function HealthRecordsPage() {
                             toast.dismiss(t.id);
                             try {
                                 const res = await fetch(`/api/health-records/${id}`, { method: 'DELETE' });
-                                if (!res.ok) throw new Error('Delete failed');
-                                toast.success('Record deleted');
+                                
+                                if (res.status === 401) {
+                                    showAuthErrorToast('Please login to continue.', 'auth');
+                                    return;
+                                }
+                                
+                                if (res.status === 403) {
+                                    const data = await res.json();
+                                    if (data.error?.includes('suspended')) {
+                                        showAuthErrorToast(data.reason || 'Your account has been suspended.', 'suspended');
+                                    } else {
+                                        showAuthErrorToast('Only patients can delete health records.', 'role');
+                                    }
+                                    return;
+                                }
+
+                                if (!res.ok) {
+                                    const data = await res.json();
+                                    throw new Error(data.error || 'Delete failed');
+                                }
+                                
+                                showSuccessToast('Record deleted successfully');
                                 await fetchRecords();
                             } catch (e) {
-                                toast.error('Failed to delete record');
+                                handleAuthError(e, 'Failed to delete record');
                             }
                         }}
                         className="flex-1 py-3 text-sm font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer"
@@ -225,7 +365,7 @@ export default function HealthRecordsPage() {
         if (record.fileUrl) {
             window.open(record.fileUrl, '_blank');
         } else {
-            toast.error('File url not available');
+            showErrorToast('File URL not available');
         }
     };
 
@@ -238,7 +378,7 @@ export default function HealthRecordsPage() {
             link.click();
             document.body.removeChild(link);
         } else {
-            toast.error('Download link not available');
+            showErrorToast('Download link not available');
         }
     };
 
@@ -269,19 +409,9 @@ export default function HealthRecordsPage() {
                 console.error('Share error:', error);
                 try {
                     await navigator.clipboard.writeText(fileUrl);
-                    toast.custom((t) => (
-                        <div className={`${t.visible ? 'animate-enter' : 'animate-leave'} max-w-md w-full bg-white shadow-lg rounded-2xl pointer-events-auto flex border border-blue-100`}>
-                            <div className="flex-1 p-4 flex items-center gap-3">
-                                <Copy className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                                <p className="text-sm font-bold text-gray-900">Link copied to clipboard!</p>
-                            </div>
-                            <button onClick={() => toast.dismiss(t.id)} className="p-4 flex items-center justify-center text-gray-400 hover:text-gray-500 border-l border-gray-100">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                    ), { duration: 3000 });
+                    showSuccessToast('Link copied to clipboard!');
                 } catch (clipError) {
-                    toast.error('Failed to share');
+                    showErrorToast('Failed to share');
                 }
             }
         }
@@ -477,7 +607,7 @@ export default function HealthRecordsPage() {
                 </div>
             </main>
 
-            {/* Redesigned Upload Modal */}
+            {/* Upload Modal */}
             {showUploadModal && (
                 <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
                     <div className="bg-white rounded-[20px] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-[#E2E8F0]">
@@ -493,6 +623,7 @@ export default function HealthRecordsPage() {
                         </div>
 
                         <form onSubmit={handleUpload} className="p-6 space-y-5">
+                            {/* Form fields remain the same */}
                             <div>
                                 <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-2">Family Member *</label>
                                 <select

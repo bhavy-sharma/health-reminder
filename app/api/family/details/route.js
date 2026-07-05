@@ -9,9 +9,46 @@ export async function GET(request) {
   try {
     await connectToDatabase();
 
+    // 1. Get authenticated user
     const auth = await getAuthenticatedUser(request);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    
+    // 2. Check authentication
+    if (!auth || !auth.authenticated) {
+      if (auth?.isSuspended) {
+        return NextResponse.json(
+          { 
+            error: "Account suspended", 
+            reason: auth.suspendedReason || "Contact support" 
+          }, 
+          { status: 403 }
+        );
+      }
+      return NextResponse.json(
+        { error: "Please login to continue" }, 
+        { status: 401 }
+      );
+    }
+
+    // 3. Check suspension
+    if (auth.isSuspended) {
+      return NextResponse.json(
+        { 
+          error: "Account suspended", 
+          reason: auth.suspendedReason || "Contact support" 
+        }, 
+        { status: 403 }
+      );
+    }
+
+    // 4. Check role - ONLY PATIENTS can access family details
+    if (auth.role !== 'patient') {
+      return NextResponse.json(
+        { 
+          error: "Access denied", 
+          message: "Only patients can access family details" 
+        }, 
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);

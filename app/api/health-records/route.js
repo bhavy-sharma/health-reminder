@@ -1,26 +1,61 @@
+// app/api/health-records/route.js
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
+import { getAuthenticatedUser } from "@/lib/auth";
 import HealthRecord from "@/models/HealthRecord";
 import FamilyMember from "@/models/FamilyMember";
 import User from "@/models/User";
-import jwt from "jsonwebtoken";
 
 export async function GET(request) {
   try {
-    const token = request.cookies.get("token")?.value;
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    console.log('Health Records API: Starting request...');
+    
+    // 1. Get authenticated user
+    const auth = await getAuthenticatedUser(request);
+    
+    // 2. Check authentication
+    if (!auth || !auth.authenticated) {
+      if (auth?.isSuspended) {
+        return NextResponse.json(
+          { 
+            error: "Account suspended", 
+            reason: auth.suspendedReason || "Contact support" 
+          }, 
+          { status: 403 }
+        );
+      }
+      return NextResponse.json(
+        { error: "Please login to continue" }, 
+        { status: 401 }
+      );
     }
 
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
-    } catch (error) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    // 3. Check suspension
+    if (auth.isSuspended) {
+      return NextResponse.json(
+        { 
+          error: "Account suspended", 
+          reason: auth.suspendedReason || "Contact support" 
+        }, 
+        { status: 403 }
+      );
     }
 
+    // 4. Check role - ONLY PATIENTS can access health records
+    if (auth.role !== 'patient') {
+      return NextResponse.json(
+        { 
+          error: "Access denied", 
+          message: "Only patients can access health records" 
+        }, 
+        { status: 403 }
+      );
+    }
+
+    // 5. Connect to database
     await connectToDatabase();
 
+    // Get query parameters
     const { searchParams } = new URL(request.url);
     const familyId = searchParams.get("familyId");
     const memberId = searchParams.get("memberId");
@@ -32,10 +67,10 @@ export async function GET(request) {
     }
 
     // Check if user belongs to this family
-    const user = await User.findById(decoded.userId);
-    const hasAccess = user.families?.some(f => f.familyId.toString() === familyId);
+    const user = await User.findById(auth.userId);
+    const hasAccess = user?.families?.some(f => f.familyId.toString() === familyId);
     
-    if (!hasAccess && user.role !== "admin") {
+    if (!hasAccess) {
       return NextResponse.json(
         { error: "You do not have access to this family" },
         { status: 403 }
@@ -99,7 +134,11 @@ export async function GET(request) {
       );
     }
 
-    return NextResponse.json({ records: filteredRecords }, { status: 200 });
+    return NextResponse.json({ 
+      success: true,
+      records: filteredRecords,
+      total: filteredRecords.length,
+    }, { status: 200 });
   } catch (error) {
     console.error("Error fetching health records:", error);
     return NextResponse.json(
@@ -108,6 +147,308 @@ export async function GET(request) {
     );
   }
 }
+
+// ── POST: Create new health record ───────────────────────────
+
+export async function POST(request) {
+  try {
+    console.log('Health Records API POST: Starting request...');
+    
+    // 1. Get authenticated user
+    const auth = await getAuthenticatedUser(request);
+    
+    // 2. Check authentication
+    if (!auth || !auth.authenticated) {
+      if (auth?.isSuspended) {
+        return NextResponse.json(
+          { 
+            error: "Account suspended", 
+            reason: auth.suspendedReason || "Contact support" 
+          }, 
+          { status: 403 }
+        );
+      }
+      return NextResponse.json(
+        { error: "Please login to continue" }, 
+        { status: 401 }
+      );
+    }
+
+    // 3. Check suspension
+    if (auth.isSuspended) {
+      return NextResponse.json(
+        { 
+          error: "Account suspended", 
+          reason: auth.suspendedReason || "Contact support" 
+        }, 
+        { status: 403 }
+      );
+    }
+
+    // 4. Check role - ONLY PATIENTS can create health records
+    if (auth.role !== 'patient') {
+      return NextResponse.json(
+        { 
+          error: "Access denied", 
+          message: "Only patients can create health records" 
+        }, 
+        { status: 403 }
+      );
+    }
+
+    await connectToDatabase();
+
+    const body = await request.json();
+    const { 
+      familyId, 
+      memberId, 
+      documentName, 
+      documentType, 
+      documentDate, 
+      notes,
+      fileUrl,
+      filePublicId,
+      fileSizeKB,
+      mimeType,
+    } = body;
+
+    // Validate required fields
+    if (!familyId || !memberId || !documentName || !documentType || !documentDate) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    // Check if user belongs to this family
+    const user = await User.findById(auth.userId);
+    const hasAccess = user?.families?.some(f => f.familyId.toString() === familyId);
+    
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "You do not have access to this family" },
+        { status: 403 }
+      );
+    }
+
+    // Create health record
+    const healthRecord = new HealthRecord({
+      familyId,
+      memberId,
+      documentName,
+      documentType,
+      documentDate: new Date(documentDate),
+      notes: notes || '',
+      fileUrl: fileUrl || '',
+      filePublicId: filePublicId || '',
+      fileSizeKB: fileSizeKB || 0,
+      mimeType: mimeType || '',
+      uploadedBy: auth.userId,
+      isActive: true,
+    });
+
+    await healthRecord.save();
+
+    return NextResponse.json({
+      success: true,
+      message: "Health record created successfully",
+      data: healthRecord,
+    }, { status: 201 });
+  } catch (error) {
+    console.error("Error creating health record:", error);
+    return NextResponse.json(
+      { error: "Failed to create health record" },
+      { status: 500 }
+    );
+  }
+}
+
+// ── PUT: Update health record ───────────────────────────────
+
+export async function PUT(request) {
+  try {
+    console.log('Health Records API PUT: Starting request...');
+    
+    // 1. Get authenticated user
+    const auth = await getAuthenticatedUser(request);
+    
+    // 2. Check authentication
+    if (!auth || !auth.authenticated) {
+      return NextResponse.json(
+        { error: "Please login to continue" }, 
+        { status: 401 }
+      );
+    }
+
+    // 3. Check suspension
+    if (auth.isSuspended) {
+      return NextResponse.json(
+        { 
+          error: "Account suspended", 
+          reason: auth.suspendedReason || "Contact support" 
+        }, 
+        { status: 403 }
+      );
+    }
+
+    // 4. Check role - ONLY PATIENTS can update health records
+    if (auth.role !== 'patient') {
+      return NextResponse.json(
+        { 
+          error: "Access denied", 
+          message: "Only patients can update health records" 
+        }, 
+        { status: 403 }
+      );
+    }
+
+    await connectToDatabase();
+
+    const { searchParams } = new URL(request.url);
+    const recordId = searchParams.get("id");
+
+    if (!recordId) {
+      return NextResponse.json(
+        { error: "Record ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const { documentName, documentType, documentDate, notes, isActive } = body;
+
+    // Find the record
+    const record = await HealthRecord.findById(recordId);
+    if (!record) {
+      return NextResponse.json(
+        { error: "Record not found" },
+        { status: 404 }
+      );
+    }
+
+    // Check if user has access to this record
+    const user = await User.findById(auth.userId);
+    const hasAccess = user?.families?.some(f => f.familyId.toString() === record.familyId.toString());
+    
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "You do not have access to this record" },
+        { status: 403 }
+      );
+    }
+
+    // Update record
+    if (documentName) record.documentName = documentName;
+    if (documentType) record.documentType = documentType;
+    if (documentDate) record.documentDate = new Date(documentDate);
+    if (notes !== undefined) record.notes = notes;
+    if (isActive !== undefined) record.isActive = isActive;
+
+    await record.save();
+
+    return NextResponse.json({
+      success: true,
+      message: "Health record updated successfully",
+      data: record,
+    }, { status: 200 });
+  } catch (error) {
+    console.error("Error updating health record:", error);
+    return NextResponse.json(
+      { error: "Failed to update health record" },
+      { status: 500 }
+    );
+  }
+}
+
+// ── DELETE: Delete health record ─────────────────────────────
+
+export async function DELETE(request) {
+  try {
+    console.log('Health Records API DELETE: Starting request...');
+    
+    // 1. Get authenticated user
+    const auth = await getAuthenticatedUser(request);
+    
+    // 2. Check authentication
+    if (!auth || !auth.authenticated) {
+      return NextResponse.json(
+        { error: "Please login to continue" }, 
+        { status: 401 }
+      );
+    }
+
+    // 3. Check suspension
+    if (auth.isSuspended) {
+      return NextResponse.json(
+        { 
+          error: "Account suspended", 
+          reason: auth.suspendedReason || "Contact support" 
+        }, 
+        { status: 403 }
+      );
+    }
+
+    // 4. Check role - ONLY PATIENTS can delete health records
+    if (auth.role !== 'patient') {
+      return NextResponse.json(
+        { 
+          error: "Access denied", 
+          message: "Only patients can delete health records" 
+        }, 
+        { status: 403 }
+      );
+    }
+
+    await connectToDatabase();
+
+    const { searchParams } = new URL(request.url);
+    const recordId = searchParams.get("id");
+
+    if (!recordId) {
+      return NextResponse.json(
+        { error: "Record ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Find the record
+    const record = await HealthRecord.findById(recordId);
+    if (!record) {
+      return NextResponse.json(
+        { error: "Record not found" },
+        { status: 404 }
+      );
+    }
+
+    // Check if user has access to this record
+    const user = await User.findById(auth.userId);
+    const hasAccess = user?.families?.some(f => f.familyId.toString() === record.familyId.toString());
+    
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: "You do not have access to this record" },
+        { status: 403 }
+      );
+    }
+
+    // Soft delete by setting isActive to false
+    record.isActive = false;
+    await record.save();
+
+    return NextResponse.json({
+      success: true,
+      message: "Health record deleted successfully",
+    }, { status: 200 });
+  } catch (error) {
+    console.error("Error deleting health record:", error);
+    return NextResponse.json(
+      { error: "Failed to delete health record" },
+      { status: 500 }
+    );
+  }
+}
+
+// ── Helper Functions ──────────────────────────────────────────
 
 function getCategoryLabel(type) {
   const map = {

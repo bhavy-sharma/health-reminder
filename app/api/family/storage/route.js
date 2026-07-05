@@ -9,9 +9,46 @@ export async function GET(request) {
   try {
     await connectToDatabase();
 
+    // 1. Get authenticated user
     const auth = await getAuthenticatedUser(request);
-    if (!auth) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    
+    // 2. Check authentication
+    if (!auth || !auth.authenticated) {
+      if (auth?.isSuspended) {
+        return NextResponse.json(
+          { 
+            error: "Account suspended", 
+            reason: auth.suspendedReason || "Contact support" 
+          }, 
+          { status: 403 }
+        );
+      }
+      return NextResponse.json(
+        { error: "Please login to continue" }, 
+        { status: 401 }
+      );
+    }
+
+    // 3. Check suspension
+    if (auth.isSuspended) {
+      return NextResponse.json(
+        { 
+          error: "Account suspended", 
+          reason: auth.suspendedReason || "Contact support" 
+        }, 
+        { status: 403 }
+      );
+    }
+
+    // 4. Check role - ONLY PATIENTS can access storage
+    if (auth.role !== 'patient') {
+      return NextResponse.json(
+        { 
+          error: "Access denied", 
+          message: "Only patients can access family storage" 
+        }, 
+        { status: 403 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
@@ -44,9 +81,9 @@ export async function GET(request) {
     }
 
     const storageData = {
-      used: family.storageUsed,
-      limit: family.storageLimit,
-      percentage: (family.storageUsed / family.storageLimit) * 100,
+      used: family.storageUsed || 0,
+      limit: family.storageLimit || 5,
+      percentage: family.storageLimit > 0 ? ((family.storageUsed || 0) / family.storageLimit) * 100 : 0,
     };
 
     return NextResponse.json({ storage: storageData }, { status: 200 });

@@ -12,16 +12,69 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
+// Helper function to validate patient access
+async function validatePatientAccess(request) {
+  const auth = await getAuthenticatedUser(request);
+  
+  // Check authentication
+  if (!auth || !auth.authenticated) {
+    if (auth?.isSuspended) {
+      return { 
+        valid: false, 
+        error: "Account suspended", 
+        reason: auth.suspendedReason || "Contact support",
+        status: 403 
+      };
+    }
+    return { 
+      valid: false, 
+      error: "Please login to continue", 
+      status: 401 
+    };
+  }
+  
+  // Check suspension
+  if (auth.isSuspended) {
+    return { 
+      valid: false, 
+      error: "Account suspended", 
+      reason: auth.suspendedReason || "Contact support",
+      status: 403 
+    };
+  }
+  
+  // Check role - ONLY PATIENTS
+  if (auth.role !== 'patient') {
+    return { 
+      valid: false, 
+      error: "Access denied", 
+      message: "Only patients can access family members",
+      status: 403 
+    };
+  }
+  
+  return { valid: true, user: auth };
+}
+
 // GET - Get all family members
 export async function GET(request) {
   try {
     await connectToDatabase();
 
-    const auth = await getAuthenticatedUser(request);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Validate patient access
+    const validation = await validatePatientAccess(request);
+    if (!validation.valid) {
+      return NextResponse.json(
+        { 
+          error: validation.error, 
+          message: validation.message,
+          reason: validation.reason 
+        },
+        { status: validation.status }
+      );
     }
 
+    const auth = validation.user;
     const { searchParams } = new URL(request.url);
     const familyId = searchParams.get("familyId");
 
@@ -60,11 +113,20 @@ export async function POST(request) {
   try {
     await connectToDatabase();
 
-    const auth = await getAuthenticatedUser(request);
-    if (!auth) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Validate patient access
+    const validation = await validatePatientAccess(request);
+    if (!validation.valid) {
+      return NextResponse.json(
+        { 
+          error: validation.error, 
+          message: validation.message,
+          reason: validation.reason 
+        },
+        { status: validation.status }
+      );
     }
 
+    const auth = validation.user;
     const body = await request.json();
     const {
       familyId,
