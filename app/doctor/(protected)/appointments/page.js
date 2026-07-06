@@ -1,159 +1,184 @@
+// app/doctor/(protected)/appointments/page.jsx
 "use client";
 
-import { useState } from "react";
-import { Bell, Search, Plus, MapPin, Video, Check, Clock, X, Calendar, Phone } from "lucide-react";
+import { useState, useEffect } from "react";
+import { 
+  Bell, Search, Plus, MapPin, Video, Check, Clock, X, Calendar, Phone, 
+  Loader2, AlertCircle 
+} from "lucide-react";
 import Link from "next/link";
 
 export default function DoctorAppointments() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("all");
   const [activeType, setActiveType] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedApt, setSelectedApt] = useState(null);
+  const [appointments, setAppointments] = useState([]);
+  const [counts, setCounts] = useState({ all: 0, confirmed: 0, pending: 0, cancelled: 0, completed: 0 });
+  const [updating, setUpdating] = useState(false);
 
-  const [appointments, setAppointments] = useState([
-    {
-      id: 1,
-      patient: "Ramesh Sharma",
-      initials: "RS",
-      color: "bg-[#4a9e7f]",
-      age: "62 yrs",
-      condition: "Chest Pain Follow-up",
-      date: "Today",
-      time: "4:30 PM",
-      type: "in-person",
-      status: "confirmed",
-      phone: "9876543210"
-    },
-    {
-      id: 2,
-      patient: "Anita Kulkarni",
-      initials: "AK",
-      color: "bg-[#e9a84c]",
-      age: "45 yrs",
-      condition: "BP Management",
-      date: "Today",
-      time: "5:00 PM",
-      type: "in-person",
-      status: "confirmed",
-      phone: "9876543211"
-    },
-    {
-      id: 3,
-      patient: "Vijay Patel",
-      initials: "VP",
-      color: "bg-[#e8403a]",
-      age: "55 yrs",
-      condition: "Post Angioplasty Check",
-      date: "Today",
-      time: "5:30 PM",
-      type: "in-person",
-      status: "pending",
-      phone: "9876543212"
-    },
-    {
-      id: 4,
-      patient: "Sunita Rao",
-      initials: "SR",
-      color: "bg-[#0d1b2a]",
-      age: "38 yrs",
-      condition: "Palpitations",
-      date: "Tomorrow",
-      time: "10:00 AM",
-      type: "video",
-      status: "confirmed",
-      phone: "9876543213"
-    },
-    {
-      id: 5,
-      patient: "Deepak Mehta",
-      initials: "DM",
-      color: "bg-[#4a9e7f]",
-      age: "70 yrs",
-      condition: "Routine Cardiac Review",
-      date: "Tomorrow",
-      time: "11:00 AM",
-      type: "in-person",
-      status: "pending",
-      phone: "9876543214"
-    }
-  ]);
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
 
-  const updateStatus = (id, newStatus) => {
-    setAppointments(prev => prev.map(apt => apt.id === id ? { ...apt, status: newStatus } : apt));
-    if (selectedApt && selectedApt.id === id) {
-      setSelectedApt({ ...selectedApt, status: newStatus });
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const params = new URLSearchParams({
+        status: activeTab,
+        type: activeType,
+        search: searchQuery,
+      });
+
+      const response = await fetch(`/api/doctor/appointments?${params}`);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to fetch appointments');
+      }
+
+      if (result.success) {
+        setAppointments(result.data.appointments || []);
+        setCounts(result.data.counts || { all: 0, confirmed: 0, pending: 0, cancelled: 0, completed: 0 });
+      } else {
+        throw new Error(result.error || 'Failed to load appointments');
+      }
+    } catch (err) {
+      console.error('Error fetching appointments:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const filteredApts = appointments.filter(apt => {
-    const matchesTab = activeTab === "all" || apt.status === activeTab;
-    const matchesType = activeType === "all" || apt.type === activeType;
-    const matchesSearch = apt.patient.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          apt.condition.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesTab && matchesType && matchesSearch;
-  });
+  // Refetch when filters change
+  useEffect(() => {
+    if (!loading) {
+      fetchAppointments();
+    }
+  }, [activeTab, activeType, searchQuery]);
 
-  const tabCounts = {
-    all: appointments.length,
-    confirmed: appointments.filter(a => a.status === 'confirmed').length,
-    pending: appointments.filter(a => a.status === 'pending').length,
-    cancelled: appointments.filter(a => a.status === 'cancelled').length,
+  const updateStatus = async (id, newStatus) => {
+    try {
+      setUpdating(true);
+      const response = await fetch('/api/doctor/appointments', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: id, status: newStatus }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update status');
+      }
+
+      if (result.success) {
+        setAppointments(prev => prev.map(apt => 
+          apt.id === id ? { ...apt, status: newStatus } : apt
+        ));
+        if (selectedApt && selectedApt.id === id) {
+          setSelectedApt({ ...selectedApt, status: newStatus });
+        }
+        fetchAppointments();
+      } else {
+        throw new Error(result.error || 'Failed to update status');
+      }
+    } catch (err) {
+      console.error('Error updating status:', err);
+      alert(`Failed to update status: ${err.message}`);
+    } finally {
+      setUpdating(false);
+    }
   };
+
+  const filteredApts = appointments;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-emerald-500 animate-spin mx-auto mb-4" />
+          <p className="text-gray-500">Loading appointments...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Appointments</h3>
+          <p className="text-sm text-gray-500 mb-4">{error}</p>
+          <button 
+            onClick={fetchAppointments}
+            className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-8 pb-20 h-screen overflow-y-auto bg-[var(--color-cream)]">
+    <div className="p-4 sm:p-6 md:p-8 pb-20 max-w-[1400px] mx-auto">
       {/* Top Header */}
       <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-2 text-sm text-[var(--color-text-muted)] font-medium">
+        <div className="flex items-center gap-2 text-sm text-gray-500 font-medium">
           <span>Doctor Portal</span>
           <span>/</span>
-          <span className="text-[var(--color-navy)] font-bold">Appointments</span>
+          <span className="text-gray-900 font-bold">Appointments</span>
         </div>
-        <button className="relative p-2 text-[var(--color-navy)] hover:bg-white/50 rounded-full transition-colors">
+        <button className="relative p-2 text-gray-700 hover:bg-white/50 rounded-full transition-colors">
           <Bell size={20} />
-          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[var(--color-pulse-red)] rounded-full border-2 border-[var(--color-cream)]"></span>
+          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
         </button>
       </div>
 
       {/* Page Title & Actions */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div>
-          <h1 className="font-fraunces text-4xl font-bold text-[var(--color-navy)] mb-1">Appointments</h1>
-          <p className="text-[var(--color-text-muted)]">{tabCounts.confirmed} confirmed · {tabCounts.pending} pending confirmation</p>
+          <h1 className="font-serif text-4xl font-bold text-gray-900 mb-1">Appointments</h1>
+          <p className="text-gray-500">{counts.confirmed || 0} confirmed · {counts.pending || 0} pending confirmation</p>
         </div>
-        <button className="bg-[var(--color-navy)] text-white px-5 py-2.5 rounded-lg font-bold text-sm hover:bg-opacity-90 transition-opacity flex items-center gap-2 self-start md:self-auto shadow-sm">
-          <Plus size={18} /> Add Slot
-        </button>
+        {/* Add Slot button removed */}
       </div>
 
       {/* Search & Filters */}
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" size={18} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input 
             type="text" 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search patient or condition..." 
-            className="w-full pl-11 pr-4 py-3 rounded-full border border-[var(--color-border)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-navy)]/20 transition-all text-sm shadow-sm"
+            className="w-full pl-11 pr-4 py-3 rounded-full border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition-all text-sm shadow-sm"
           />
         </div>
-        <div className="flex bg-white rounded-full border border-[var(--color-border)] p-1 shrink-0 shadow-sm">
+        <div className="flex bg-white rounded-full border border-gray-200 p-1 shrink-0 shadow-sm">
           <button 
             onClick={() => setActiveType("all")}
-            className={`px-5 py-2 text-sm font-semibold rounded-full whitespace-nowrap transition-colors ${activeType === "all" ? "bg-[var(--color-cream)] text-[var(--color-navy)] shadow-sm border border-[var(--color-border)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-navy)]"}`}
+            className={`px-5 py-2 text-sm font-semibold rounded-full whitespace-nowrap transition-colors ${activeType === "all" ? "bg-gray-100 text-gray-900 shadow-sm border border-gray-200" : "text-gray-400 hover:text-gray-900"}`}
           >
             All
           </button>
           <button 
             onClick={() => setActiveType("in-person")}
-            className={`px-5 py-2 text-sm font-semibold rounded-full whitespace-nowrap transition-colors ${activeType === "in-person" ? "bg-[var(--color-cream)] text-[var(--color-navy)] shadow-sm border border-[var(--color-border)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-navy)]"}`}
+            className={`px-5 py-2 text-sm font-semibold rounded-full whitespace-nowrap transition-colors ${activeType === "in-person" ? "bg-gray-100 text-gray-900 shadow-sm border border-gray-200" : "text-gray-400 hover:text-gray-900"}`}
           >
             In-Person
           </button>
           <button 
             onClick={() => setActiveType("video")}
-            className={`px-5 py-2 text-sm font-semibold rounded-full whitespace-nowrap transition-colors ${activeType === "video" ? "bg-[var(--color-cream)] text-[var(--color-navy)] shadow-sm border border-[var(--color-border)]" : "text-[var(--color-text-muted)] hover:text-[var(--color-navy)]"}`}
+            className={`px-5 py-2 text-sm font-semibold rounded-full whitespace-nowrap transition-colors ${activeType === "video" ? "bg-gray-100 text-gray-900 shadow-sm border border-gray-200" : "text-gray-400 hover:text-gray-900"}`}
           >
             Video
           </button>
@@ -161,25 +186,26 @@ export default function DoctorAppointments() {
       </div>
 
       {/* Status Tabs */}
-      <div className="flex bg-[#efebe4] p-2 rounded-2xl mb-6 w-full border border-[var(--color-border)] overflow-x-auto gap-2">
+      <div className="flex bg-gray-50 p-2 rounded-2xl mb-6 w-full border border-gray-200 overflow-x-auto gap-2">
         {[
-          { id: "all", label: "All", count: tabCounts.all },
-          { id: "confirmed", label: "Confirmed", count: tabCounts.confirmed },
-          { id: "pending", label: "Pending", count: tabCounts.pending },
-          { id: "cancelled", label: "Cancelled", count: tabCounts.cancelled }
+          { id: "all", label: "All", count: counts.all },
+          { id: "confirmed", label: "Confirmed", count: counts.confirmed },
+          { id: "pending", label: "Pending", count: counts.pending },
+          { id: "cancelled", label: "Cancelled", count: counts.cancelled },
+          { id: "completed", label: "Completed", count: counts.completed }
         ].map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-5 py-2 rounded-xl font-semibold text-sm whitespace-nowrap transition-all shadow-sm
               ${activeTab === tab.id 
-                ? "bg-white text-[var(--color-navy)]" 
-                : "text-[var(--color-text-muted)] hover:text-[var(--color-navy)] hover:bg-white/50 shadow-none border-transparent"
+                ? "bg-white text-gray-900" 
+                : "text-gray-400 hover:text-gray-900 hover:bg-white/50 shadow-none border-transparent"
               }`}
           >
             {tab.label}
             <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${
-              activeTab === tab.id ? "bg-[var(--color-cream)] text-[var(--color-text-secondary)] border border-[var(--color-border)]" : "bg-[var(--color-surface-secondary)] text-[var(--color-text-secondary)]"
+              activeTab === tab.id ? "bg-gray-100 text-gray-600 border border-gray-200" : "bg-gray-200 text-gray-500"
             }`}>
               {tab.count}
             </span>
@@ -193,37 +219,37 @@ export default function DoctorAppointments() {
         {/* Appointments List */}
         <div className={`space-y-4 ${selectedApt ? 'lg:col-span-2' : ''}`}>
           {filteredApts.length === 0 ? (
-            <div className="bg-white rounded-[var(--radius-card-lg)] p-12 border border-[var(--color-border)] shadow-sm flex flex-col items-center justify-center text-center">
-              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-[var(--color-text-muted)] mb-4">
+            <div className="bg-white rounded-xl p-12 border border-gray-200 shadow-sm flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center text-gray-400 mb-4">
                 <Calendar size={32} />
               </div>
-              <p className="text-[var(--color-text-secondary)] font-medium">No appointments match your filters</p>
+              <p className="text-gray-600 font-medium">No appointments match your filters</p>
             </div>
           ) : (
             filteredApts.map((apt) => (
               <div 
                 key={apt.id} 
                 onClick={() => setSelectedApt(apt)}
-                className={`bg-white rounded-[var(--radius-card-lg)] p-5 shadow-sm transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer relative
-                  ${selectedApt?.id === apt.id ? 'border-2 border-[var(--color-navy)]' : 'border border-[var(--color-border)] hover:border-[var(--color-navy)]'}`}
+                className={`bg-white rounded-xl p-5 shadow-sm transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer relative
+                  ${selectedApt?.id === apt.id ? 'border-2 border-gray-900' : 'border border-gray-200 hover:border-gray-400'}`}
               >
                 <div className="flex items-start gap-4">
-                  <div className={`w-14 h-14 rounded-full ${apt.color} text-white flex items-center justify-center font-bold text-lg shrink-0`}>
-                    {apt.initials}
+                  <div className={`w-14 h-14 rounded-full ${apt.color || 'bg-gray-400'} text-white flex items-center justify-center font-bold text-lg shrink-0`}>
+                    {apt.initials || '?'}
                   </div>
                   <div>
-                    <h3 className="font-bold text-[var(--color-navy)] text-lg mb-1">{apt.patient}</h3>
-                    <p className="text-[var(--color-text-secondary)] text-sm mb-3">
+                    <h3 className="font-bold text-gray-900 text-lg mb-1">{apt.patient}</h3>
+                    <p className="text-gray-600 text-sm mb-3">
                       {apt.age} · {apt.condition}
                     </p>
-                    <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-[var(--color-text-muted)]">
+                    <div className="flex flex-wrap items-center gap-4 text-xs font-medium text-gray-400">
                       <div className="flex items-center gap-1.5">
                         <Calendar size={14} /> {apt.date}
                       </div>
                       <div className="flex items-center gap-1.5">
                         <Clock size={14} /> {apt.time}
                       </div>
-                      <div className={`flex items-center gap-1.5 ${apt.type === 'video' ? 'text-[#6c5ce7]' : ''}`}>
+                      <div className={`flex items-center gap-1.5 ${apt.type === 'video' ? 'text-purple-600' : ''}`}>
                         {apt.type === 'in-person' ? <MapPin size={14} /> : <Video size={14} />} 
                         {apt.type === 'in-person' ? 'In-Person' : 'Video'}
                       </div>
@@ -233,20 +259,24 @@ export default function DoctorAppointments() {
                 
                 <div className="md:absolute top-5 right-5 flex items-center justify-end self-end md:self-auto">
                   {apt.status === "confirmed" ? (
-                    <span className="flex items-center gap-1 text-[#4a9e7f] font-semibold text-xs bg-[#e6f4ef] px-3 py-1 rounded-full">
+                    <span className="flex items-center gap-1 text-emerald-600 font-semibold text-xs bg-emerald-50 px-3 py-1 rounded-full">
                       Confirmed
                     </span>
                   ) : apt.status === "pending" ? (
-                    <span className="flex items-center gap-1 text-[#e9a84c] font-semibold text-xs bg-[#fef3e6] px-3 py-1 rounded-full">
+                    <span className="flex items-center gap-1 text-amber-500 font-semibold text-xs bg-amber-50 px-3 py-1 rounded-full">
                       Pending
                     </span>
                   ) : apt.status === "cancelled" ? (
-                    <span className="flex items-center gap-1 text-[#e8403a] font-semibold text-xs bg-[#fdf2f2] px-3 py-1 rounded-full">
+                    <span className="flex items-center gap-1 text-red-500 font-semibold text-xs bg-red-50 px-3 py-1 rounded-full">
                       Cancelled
                     </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-[#6c757d] font-semibold text-xs bg-[#efebe4] px-3 py-1 rounded-full">
+                  ) : apt.status === "completed" ? (
+                    <span className="flex items-center gap-1 text-blue-500 font-semibold text-xs bg-blue-50 px-3 py-1 rounded-full">
                       Completed
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-gray-500 font-semibold text-xs bg-gray-50 px-3 py-1 rounded-full">
+                      {apt.status}
                     </span>
                   )}
                 </div>
@@ -257,14 +287,14 @@ export default function DoctorAppointments() {
 
         {/* Details Side Panel */}
         {selectedApt && (
-          <div className="bg-white rounded-[var(--radius-card-lg)] border border-[var(--color-border)] shadow-sm flex flex-col h-fit sticky top-8">
-            <div className="p-6 border-b border-[var(--color-border)] flex justify-between items-start">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col h-fit sticky top-8">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-start">
               <div>
-                <h2 className="font-fraunces text-2xl font-bold text-[var(--color-navy)]">Details</h2>
+                <h2 className="font-serif text-2xl font-bold text-gray-900">Details</h2>
               </div>
               <button 
                 onClick={() => setSelectedApt(null)}
-                className="text-[var(--color-text-muted)] hover:text-[var(--color-pulse-red)] transition-colors p-1"
+                className="text-gray-400 hover:text-red-500 transition-colors p-1"
               >
                 <X size={20} />
               </button>
@@ -273,51 +303,57 @@ export default function DoctorAppointments() {
             <div className="p-6 flex flex-col gap-6">
               {/* Patient Info */}
               <div className="flex items-center gap-4">
-                <div className={`w-16 h-16 rounded-2xl ${selectedApt.color} text-white flex items-center justify-center font-bold text-xl`}>
-                  {selectedApt.initials}
+                <div className={`w-16 h-16 rounded-2xl ${selectedApt.color || 'bg-gray-400'} text-white flex items-center justify-center font-bold text-xl`}>
+                  {selectedApt.initials || '?'}
                 </div>
                 <div>
-                  <h3 className="font-bold text-[var(--color-navy)] text-lg leading-tight mb-1">{selectedApt.patient}</h3>
-                  <p className="text-[var(--color-text-muted)] text-sm mb-2">{selectedApt.age} old</p>
+                  <h3 className="font-bold text-gray-900 text-lg leading-tight mb-1">{selectedApt.patient}</h3>
+                  <p className="text-gray-400 text-sm mb-2">{selectedApt.age} old</p>
                   
-                  {selectedApt.status === "confirmed" && <span className="text-[#4a9e7f] font-semibold text-xs bg-[#e6f4ef] px-2 py-1 rounded-md">Confirmed</span>}
-                  {selectedApt.status === "pending" && <span className="text-[#e9a84c] font-semibold text-xs bg-[#fef3e6] px-2 py-1 rounded-md">Pending</span>}
-                  {selectedApt.status === "cancelled" && <span className="text-[#e8403a] font-semibold text-xs bg-[#fdf2f2] px-2 py-1 rounded-md">Cancelled</span>}
-                  {selectedApt.status === "completed" && <span className="text-[#6c757d] font-semibold text-xs bg-[#efebe4] px-2 py-1 rounded-md">Completed</span>}
+                  {selectedApt.status === "confirmed" && <span className="text-emerald-600 font-semibold text-xs bg-emerald-50 px-2 py-1 rounded-md">Confirmed</span>}
+                  {selectedApt.status === "pending" && <span className="text-amber-500 font-semibold text-xs bg-amber-50 px-2 py-1 rounded-md">Pending</span>}
+                  {selectedApt.status === "cancelled" && <span className="text-red-500 font-semibold text-xs bg-red-50 px-2 py-1 rounded-md">Cancelled</span>}
+                  {selectedApt.status === "completed" && <span className="text-blue-500 font-semibold text-xs bg-blue-50 px-2 py-1 rounded-md">Completed</span>}
                 </div>
               </div>
 
               {/* Info Grid */}
               <div className="grid grid-cols-[100px_1fr] gap-y-4 text-sm">
-                <div className="text-[var(--color-text-muted)] flex items-center gap-2">
-                  <span className="w-4 flex justify-center text-lg">📄</span> Condition
+                <div className="text-gray-400 flex items-center gap-2">
+                  📄 Condition
                 </div>
-                <div className="font-bold text-[var(--color-navy)]">{selectedApt.condition}</div>
+                <div className="font-bold text-gray-900">{selectedApt.condition}</div>
                 
-                <div className="text-[var(--color-text-muted)] flex items-center gap-2">
+                <div className="text-gray-400 flex items-center gap-2">
                   <Calendar size={14} className="ml-0.5" /> Date
                 </div>
-                <div className="font-bold text-[var(--color-navy)]">{selectedApt.date}</div>
+                <div className="font-bold text-gray-900">{selectedApt.date}</div>
                 
-                <div className="text-[var(--color-text-muted)] flex items-center gap-2">
+                <div className="text-gray-400 flex items-center gap-2">
                   <Clock size={14} className="ml-0.5" /> Time
                 </div>
-                <div className="font-bold text-[var(--color-navy)]">{selectedApt.time}</div>
+                <div className="font-bold text-gray-900">{selectedApt.time}</div>
                 
-                <div className="text-[var(--color-text-muted)] flex items-center gap-2">
+                <div className="text-gray-400 flex items-center gap-2">
                   <MapPin size={14} className="ml-0.5" /> Type
                 </div>
-                <div className="font-bold text-[var(--color-navy)]">
+                <div className="font-bold text-gray-900">
                   {selectedApt.type === 'in-person' ? 'In-Person' : 'Video'}
                 </div>
+
+                <div className="text-gray-400 flex items-center gap-2">
+                  <Calendar size={14} className="ml-0.5" /> Fee
+                </div>
+                <div className="font-bold text-gray-900">₹{selectedApt.fee || 0}</div>
               </div>
 
               {/* Notes Section */}
               <div>
-                <p className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">Doctor's Note</p>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Doctor's Note</p>
                 <textarea 
                   placeholder="Add a private note..."
-                  className="w-full h-24 bg-gray-50 border border-[var(--color-border)] rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-navy)]/20 transition-all text-[var(--color-text-primary)]"
+                  className="w-full h-24 bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20 transition-all text-gray-900"
+                  defaultValue={selectedApt.notes || ''}
                 ></textarea>
               </div>
 
@@ -326,9 +362,11 @@ export default function DoctorAppointments() {
                 {selectedApt.status !== "completed" && selectedApt.status !== "cancelled" && (
                   <button 
                     onClick={() => updateStatus(selectedApt.id, "completed")}
-                    className="w-full bg-[var(--color-navy)] text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-opacity-90 transition-all shadow-md"
+                    disabled={updating}
+                    className="w-full bg-gray-900 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-gray-800 transition-all shadow-md disabled:opacity-50"
                   >
-                    <Check size={18} /> Mark Complete
+                    {updating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check size={18} />} 
+                    Mark Complete
                   </button>
                 )}
                 
@@ -337,14 +375,14 @@ export default function DoctorAppointments() {
                     href={`https://wa.me/91${selectedApt.phone}`} 
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex-1 bg-[#e6f4ef] text-[var(--color-sage-green)] py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-opacity-80 transition-all border border-[var(--color-sage-green)]/20"
+                    className="flex-1 bg-emerald-50 text-emerald-600 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-emerald-100 transition-all border border-emerald-200"
                   >
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21" /><path d="M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1" /></svg> 
                     WhatsApp
                   </a>
                   <a 
                     href={`tel:+91${selectedApt.phone}`}
-                    className="flex-1 bg-white border border-[var(--color-border)] text-[var(--color-text-secondary)] py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:border-[var(--color-navy)] transition-all"
+                    className="flex-1 bg-white border border-gray-200 text-gray-600 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:border-gray-400 transition-all"
                   >
                     <Phone size={16} /> Call
                   </a>
@@ -352,8 +390,13 @@ export default function DoctorAppointments() {
 
                 {selectedApt.status !== "cancelled" && selectedApt.status !== "completed" && (
                   <button 
-                    onClick={() => updateStatus(selectedApt.id, "cancelled")}
-                    className="w-full text-[#e8403a] bg-[#fdf2f2] py-3 rounded-xl font-bold hover:bg-opacity-80 transition-all mt-2"
+                    onClick={() => {
+                      if (confirm('Are you sure you want to cancel this appointment?')) {
+                        updateStatus(selectedApt.id, "cancelled");
+                      }
+                    }}
+                    disabled={updating}
+                    className="w-full text-red-500 bg-red-50 py-3 rounded-xl font-bold hover:bg-red-100 transition-all mt-2 disabled:opacity-50"
                   >
                     Cancel Appointment
                   </button>

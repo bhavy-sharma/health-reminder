@@ -1,6 +1,7 @@
-'use client';
+// app/patient/find-doctors/page.jsx
+"use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search,
   Star,
@@ -20,8 +21,11 @@ import {
   UserPlus,
   Filter,
   X,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
-import Sidebar from './Sidebar';
+import Sidebar from '@/components/patient-dashboard/Sidebar';
+import Link from 'next/link';
 
 const quickFilters = [
   'Diabetes', 'High Blood Pressure', 'Knee Pain',
@@ -58,124 +62,18 @@ const getColorClass = (hex) => {
   return colorMap[hex] || 'bg-gray-500';
 };
 
-const doctors = [
-  {
-    id: 1,
-    name: 'Dr. Priya Mehta',
-    initials: 'PM',
-    color: '#EF4444',
-    specialty: 'Cardiologist & Interventional',
-    hospital: 'Apollo Hospitals, Bandra',
-    rating: 4.9,
-    reviews: 312,
-    distance: '1.2 km',
-    experience: '18 yrs exp',
-    nextSlot: 'Next: Today, 4:30 PM',
-    tags: ['Heart Disease', 'High Blood Pressure', 'Chest Pain', '+1 more'],
-    languages: ['Hindi', 'English'],
-    fee: 800,
-    verified: true,
-  },
-  {
-    id: 2,
-    name: 'Dr. Arun Sharma',
-    initials: 'AS',
-    color: '#14B8A6',
-    specialty: 'Diabetologist & Endocrinologist',
-    hospital: 'Lilavati Hospital, Bandra',
-    rating: 4.7,
-    reviews: 198,
-    distance: '2.4 km',
-    experience: '14 yrs exp',
-    nextSlot: 'Next: Tomorrow, 10:00 AM',
-    tags: ['Diabetes', 'Thyroid', 'Obesity'],
-    languages: ['Hindi', 'Marathi', 'English'],
-    fee: 700,
-    verified: true,
-  },
-  {
-    id: 3,
-    name: 'Dr. Sneha Kulkarni',
-    initials: 'SK',
-    color: '#8B5CF6',
-    specialty: 'Neurologist',
-    hospital: 'Kokilaben Hospital, Andheri',
-    rating: 4.8,
-    reviews: 245,
-    distance: '3.1 km',
-    experience: '20 yrs exp',
-    nextSlot: 'Next: Today, 6:00 PM',
-    tags: ['Migraine', 'Epilepsy', 'Back Pain'],
-    languages: ['English', 'Marathi'],
-    fee: 1200,
-    verified: true,
-  },
-  {
-    id: 4,
-    name: 'Dr. Rajesh Patel',
-    initials: 'RP',
-    color: '#3B82F6',
-    specialty: 'Orthopedic Surgeon',
-    hospital: 'Breach Candy Hospital',
-    rating: 4.6,
-    reviews: 176,
-    distance: '4.5 km',
-    experience: '22 yrs exp',
-    nextSlot: 'Next: Wed, 11:30 AM',
-    tags: ['Knee Pain', 'Joint Replacement', 'Spine'],
-    languages: ['Hindi', 'Gujarati', 'English'],
-    fee: 900,
-    verified: true,
-  },
-  {
-    id: 5,
-    name: 'Dr. Ananya Iyer',
-    initials: 'AI',
-    color: '#F59E0B',
-    specialty: 'Pediatrician',
-    hospital: 'Hinduja Hospital, Mahim',
-    rating: 4.9,
-    reviews: 403,
-    distance: '1.8 km',
-    experience: '12 yrs exp',
-    nextSlot: 'Next: Today, 5:15 PM',
-    tags: ['Child Care', 'Vaccination', 'Nutrition'],
-    languages: ['English', 'Tamil', 'Hindi'],
-    fee: 600,
-    verified: true,
-  },
-  {
-    id: 6,
-    name: 'Dr. Kavya Reddy',
-    initials: 'KR',
-    color: '#EC4899',
-    specialty: 'Ophthalmologist',
-    hospital: 'Eye Care Centre, Juhu',
-    rating: 4.7,
-    reviews: 134,
-    distance: '2.9 km',
-    experience: '10 yrs exp',
-    nextSlot: 'Next: Thu, 9:00 AM',
-    tags: ['Eye Strain', 'Cataract', 'Glaucoma'],
-    languages: ['English', 'Telugu'],
-    fee: 750,
-    verified: true,
-  },
-];
-
 function StarRating({ rating }) {
   return (
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((s) => (
         <Star
           key={s}
-          className={`w-3.5 h-3.5 ${
-            s <= Math.floor(rating)
+          className={`w-3.5 h-3.5 ${s <= Math.floor(rating)
               ? 'text-amber-400 fill-amber-400'
               : s - 0.5 <= rating
-              ? 'text-amber-400 fill-amber-200'
-              : 'text-gray-200 fill-gray-200'
-          }`}
+                ? 'text-amber-400 fill-amber-200'
+                : 'text-gray-200 fill-gray-200'
+            }`}
         />
       ))}
     </div>
@@ -183,25 +81,109 @@ function StarRating({ rating }) {
 }
 
 export default function FindDoctorsPage() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
   const [activeSpecialty, setActiveSpecialty] = useState('All');
   const [activeQuickFilter, setActiveQuickFilter] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [doctors, setDoctors] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [sortBy, setSortBy] = useState('rating');
 
-  const filtered = doctors.filter((d) => {
-    const matchSearch =
-      search === '' ||
-      d.name.toLowerCase().includes(search.toLowerCase()) ||
-      d.specialty.toLowerCase().includes(search.toLowerCase()) ||
-      d.hospital.toLowerCase().includes(search.toLowerCase());
-    const matchSpecialty =
-      activeSpecialty === 'All' ||
-      d.specialty.toLowerCase().includes(activeSpecialty.toLowerCase());
-    const matchQuick =
-      !activeQuickFilter ||
-      d.tags.some((t) => t.toLowerCase().includes(activeQuickFilter.toLowerCase()));
-    return matchSearch && matchSpecialty && matchQuick;
-  });
+  const fetchDoctors = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams({
+        search,
+        specialty: activeSpecialty,
+        quickFilter: activeQuickFilter || '',
+        page,
+        limit: 10,
+        sortBy,
+      });
+
+      const response = await fetch(`/api/patients/doctors?${params}`);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to fetch doctors');
+      }
+
+      if (result.success) {
+        setDoctors(result.data.doctors);
+        setTotal(result.data.total);
+        setTotalPages(result.data.totalPages);
+      } else {
+        throw new Error(result.message || 'Failed to load doctors');
+      }
+    } catch (err) {
+      console.error('Error fetching doctors:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [search, activeSpecialty, activeQuickFilter, page, sortBy]);
+
+  useEffect(() => {
+    fetchDoctors();
+  }, [fetchDoctors]);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (page !== 1) {
+        setPage(1);
+      } else {
+        fetchDoctors();
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [search, activeSpecialty, activeQuickFilter]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FAF8F5]">
+        <Sidebar />
+        <main className="md:pl-[280px]">
+          <div className="flex items-center justify-center h-screen">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 text-[#0D1B2A] animate-spin mx-auto mb-4" />
+              <p className="text-gray-500">Loading doctors...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#FAF8F5]">
+        <Sidebar />
+        <main className="md:pl-[280px]">
+          <div className="flex items-center justify-center h-screen p-4">
+            <div className="text-center max-w-md">
+              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Doctors</h3>
+              <p className="text-sm text-gray-500 mb-4">{error}</p>
+              <button
+                onClick={fetchDoctors}
+                className="px-4 py-2 bg-[#0D1B2A] text-white rounded-lg hover:bg-[#1a2e44]"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
@@ -210,7 +192,7 @@ export default function FindDoctorsPage() {
       <main className="md:pl-[280px]">
         <div className="max-w-7xl mx-auto px-4 md:px-10 py-10 pt-16 md:pt-10">
 
-          {/* Header with Category Label */}
+          {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
             <div>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-[#1E40AF] text-xs font-bold rounded-full tracking-wider uppercase">
@@ -227,7 +209,7 @@ export default function FindDoctorsPage() {
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-400 bg-white px-3 py-1.5 rounded-full border border-gray-100 shadow-sm">
                 <Stethoscope className="w-3.5 h-3.5 inline mr-1.5 text-blue-600" />
-                {filtered.length} doctors found
+                {total} doctors found
               </span>
             </div>
           </div>
@@ -250,11 +232,10 @@ export default function FindDoctorsPage() {
               <button
                 key={f}
                 onClick={() => setActiveQuickFilter(activeQuickFilter === f ? null : f)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${
-                  activeQuickFilter === f
+                className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${activeQuickFilter === f
                     ? 'bg-[#0D1B2A] text-white border-[#0D1B2A] shadow-sm'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                }`}
+                  }`}
               >
                 {f}
               </button>
@@ -267,11 +248,10 @@ export default function FindDoctorsPage() {
               <button
                 key={label}
                 onClick={() => setActiveSpecialty(label)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border transition-all shrink-0 ${
-                  activeSpecialty === label
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border transition-all shrink-0 ${activeSpecialty === label
                     ? 'bg-[#0D1B2A] text-white border-[#0D1B2A] shadow-sm'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                }`}
+                  }`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 {label}
@@ -282,13 +262,19 @@ export default function FindDoctorsPage() {
           {/* Results row with filters */}
           <div className="flex items-center justify-between mb-6">
             <p className="text-sm text-gray-500">
-              <span className="font-semibold text-gray-900">{filtered.length}</span> doctors found
+              <span className="font-semibold text-gray-900">{doctors.length}</span> doctors found
             </p>
             <div className="flex items-center gap-3">
-              <button className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-600 shadow-sm hover:bg-gray-50 transition-colors">
-                Relevance <ChevronDown className="w-3.5 h-3.5" />
-              </button>
-              <button 
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0D1B2A]"
+              >
+                <option value="rating">Sort by Rating</option>
+                <option value="fee">Sort by Fee (Low to High)</option>
+                <option value="experience">Sort by Experience</option>
+              </select>
+              <button
                 onClick={() => setShowFilters(!showFilters)}
                 className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-600 shadow-sm hover:bg-gray-50 transition-colors"
               >
@@ -298,7 +284,7 @@ export default function FindDoctorsPage() {
             </div>
           </div>
 
-          {/* CTA banner - Redesigned to match other pages */}
+          {/* CTA banner */}
           <div className="bg-gradient-to-r from-[#0D1B2A] to-[#1a2e44] rounded-2xl p-6 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-blue-600/20 flex items-center justify-center">
@@ -316,15 +302,15 @@ export default function FindDoctorsPage() {
             </button>
           </div>
 
-          {/* Doctor cards - Enhanced styling */}
+          {/* Doctor cards */}
           <div className="space-y-4">
-            {filtered.length === 0 && (
+            {doctors.length === 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-7 py-12 text-center text-gray-400 text-sm">
                 No doctors match your search.
               </div>
             )}
 
-            {filtered.map((doc) => (
+            {doctors.map((doc) => (
               <div
                 key={doc.id}
                 className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow duration-300"
@@ -338,7 +324,7 @@ export default function FindDoctorsPage() {
                       {doc.initials}
                     </div>
 
-                    {/* Info - Mobile friendly */}
+                    {/* Info - Mobile */}
                     <div className="flex-1 min-w-0 md:hidden">
                       <div className="flex items-center gap-1.5">
                         <h3 className="text-[16px] font-semibold text-gray-900">{doc.name}</h3>
@@ -372,7 +358,7 @@ export default function FindDoctorsPage() {
                   </div>
                 </div>
 
-                {/* Mobile fee display */}
+                {/* Mobile fee */}
                 <div className="md:hidden flex justify-end mt-2">
                   <div className="text-right">
                     <p className="text-lg font-bold text-gray-900">₹{doc.fee}</p>
@@ -402,7 +388,7 @@ export default function FindDoctorsPage() {
 
                 {/* Condition tags */}
                 <div className="flex flex-wrap gap-2 mt-3">
-                  {doc.tags.map((tag) => (
+                  {doc.tags.slice(0, 4).map((tag) => (
                     <span
                       key={tag}
                       className="px-2.5 py-1 bg-gray-50 border border-gray-100 rounded-lg text-xs text-gray-600"
@@ -415,7 +401,7 @@ export default function FindDoctorsPage() {
                 {/* Footer */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-100">
                   <div className="flex flex-wrap gap-2">
-                    {doc.languages.map((lang) => (
+                    {doc.languages.slice(0, 3).map((lang) => (
                       <span
                         key={lang}
                         className="px-2.5 py-1 bg-gray-50 border border-gray-100 rounded-lg text-xs text-gray-500"
@@ -424,13 +410,44 @@ export default function FindDoctorsPage() {
                       </span>
                     ))}
                   </div>
-                  <button className="text-sm font-medium text-[#0D1B2A] hover:text-[#1a2e44] transition-colors flex items-center gap-1">
+                  <Link
+                    href={`/find-doctors/${doc.id}`}
+                    className="text-sm font-medium text-[#0D1B2A] hover:text-[#1a2e44] transition-colors flex items-center gap-1"
+                  >
                     View Profile →
-                  </button>
+                  </Link>
                 </div>
               </div>
             ))}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <p className="text-sm text-gray-400">
+                Showing {doctors.length} of {total} doctors
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="px-3 py-1 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="px-3 py-1 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

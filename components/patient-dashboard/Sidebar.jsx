@@ -16,6 +16,7 @@ import {
     Loader2,
     LogOut,
     Home,
+    Calendar,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -45,12 +46,12 @@ const Sidebar = () => {
 
     const menuItems = [
         { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+        { icon: Calendar, label: 'My Appointments', href: '/appointments' },
         { icon: HeartPulse, label: 'Health Records', href: '/health-records' },
         { icon: Pill, label: 'Medicine Tracker', href: '/medicine-tracker' },
         { icon: Stethoscope, label: 'Doctor Visit Prep', href: '/doctor-visit' },
         { icon: Search, label: 'Find Doctors', href: '/find-doctors' },
         { icon: Users, label: 'Family Members', href: '/family-members' },
-
     ];
 
     useEffect(() => {

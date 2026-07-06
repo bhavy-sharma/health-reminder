@@ -1,3 +1,4 @@
+// models/Appointment.js - Clean version without middleware
 import mongoose from "mongoose";
 
 const AppointmentSchema = new mongoose.Schema(
@@ -55,19 +56,13 @@ const AppointmentSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: {
-        values: ["in-person", "video"],
-        message: "Type must be either 'in-person' or 'video'",
-      },
+      enum: ["in-person", "video"],
       required: [true, "Appointment type is required"],
       default: "in-person",
     },
     status: {
       type: String,
-      enum: {
-        values: ["pending", "confirmed", "completed", "cancelled", "no-show"],
-        message: "Invalid status value",
-      },
+      enum: ["pending", "confirmed", "completed", "cancelled", "no-show"],
       default: "pending",
       index: true,
     },
@@ -135,14 +130,13 @@ const AppointmentSchema = new mongoose.Schema(
   }
 );
 
-// Add compound indexes for common queries
+// ── Indexes ──────────────────────────────────────────────────────
 AppointmentSchema.index({ doctorId: 1, appointmentDate: 1 });
 AppointmentSchema.index({ patientFamilyId: 1, appointmentDate: 1 });
 AppointmentSchema.index({ patientMemberId: 1, appointmentDate: 1 });
 AppointmentSchema.index({ doctorId: 1, status: 1 });
 AppointmentSchema.index({ appointmentDate: 1, timeSlot: 1 });
 
-// Unique index to prevent double booking for same doctor at same time
 AppointmentSchema.index(
   { doctorId: 1, appointmentDate: 1, timeSlot: 1 },
   { 
@@ -154,7 +148,7 @@ AppointmentSchema.index(
   }
 );
 
-// Virtual field for appointment status label
+// ── Virtual fields ──────────────────────────────────────────────
 AppointmentSchema.virtual("statusLabel").get(function() {
   const labels = {
     pending: "Pending",
@@ -166,7 +160,6 @@ AppointmentSchema.virtual("statusLabel").get(function() {
   return labels[this.status] || this.status;
 });
 
-// Virtual field for appointment type label
 AppointmentSchema.virtual("typeLabel").get(function() {
   const labels = {
     "in-person": "In-Person",
@@ -175,7 +168,6 @@ AppointmentSchema.virtual("typeLabel").get(function() {
   return labels[this.type] || this.type;
 });
 
-// Virtual field for appointment date formatted
 AppointmentSchema.virtual("formattedDate").get(function() {
   return this.appointmentDate.toLocaleDateString("en-US", {
     weekday: "short",
@@ -185,40 +177,18 @@ AppointmentSchema.virtual("formattedDate").get(function() {
   });
 });
 
-// Virtual field for appointment time formatted
 AppointmentSchema.virtual("formattedTime").get(function() {
   return this.timeSlot;
 });
 
-// Pre-save middleware to validate appointment date
-AppointmentSchema.pre("save", function(next) {
-  // Check if appointment date is in the past
-  if (this.appointmentDate < new Date() && this.status === "pending") {
-    // Allow booking for past dates only if status is not pending
-    next(new Error("Cannot create a pending appointment for a past date"));
-  }
-  next();
-});
+// ── NO MIDDLEWARE ──────────────────────────────────────────────
 
-// Pre-save middleware to handle cancellation
-AppointmentSchema.pre("save", function(next) {
-  // If status is being set to cancelled, set cancelledAt
-  if (this.isModified("status") && this.status === "cancelled") {
-    this.cancelledAt = new Date();
-    if (!this.cancelledBy) {
-      this.cancelledBy = "system";
-    }
-  }
-  next();
-});
-
-// Instance method to confirm appointment
+// ── Instance methods ──────────────────────────────────────────
 AppointmentSchema.methods.confirm = async function() {
   this.status = "confirmed";
   return this.save();
 };
 
-// Instance method to complete appointment
 AppointmentSchema.methods.complete = async function(doctorNote) {
   this.status = "completed";
   if (doctorNote) {
@@ -227,7 +197,6 @@ AppointmentSchema.methods.complete = async function(doctorNote) {
   return this.save();
 };
 
-// Instance method to cancel appointment
 AppointmentSchema.methods.cancel = async function(reason, cancelledBy = "patient") {
   this.status = "cancelled";
   this.cancellationReason = reason;
@@ -236,56 +205,7 @@ AppointmentSchema.methods.cancel = async function(reason, cancelledBy = "patient
   return this.save();
 };
 
-// Instance method to reschedule appointment
-AppointmentSchema.methods.reschedule = async function(newDate, newTimeSlot) {
-  // Create a new appointment with the new date/time
-  const Appointment = mongoose.models.Appointment || mongoose.model("Appointment", AppointmentSchema);
-  
-  // Check if the new slot is available
-  const existing = await Appointment.findOne({
-    doctorId: this.doctorId,
-    appointmentDate: newDate,
-    timeSlot: newTimeSlot,
-    status: { $in: ["pending", "confirmed"] },
-    _id: { $ne: this._id },
-  });
-
-  if (existing) {
-    throw new Error("Selected time slot is already booked");
-  }
-
-  // Create new appointment
-  const newAppointment = new Appointment({
-    doctorId: this.doctorId,
-    patientFamilyId: this.patientFamilyId,
-    patientMemberId: this.patientMemberId,
-    patientName: this.patientName,
-    patientPhone: this.patientPhone,
-    patientAge: this.patientAge,
-    condition: this.condition,
-    appointmentDate: newDate,
-    timeSlot: newTimeSlot,
-    type: this.type,
-    fee: this.fee,
-    isRescheduled: true,
-    previousAppointmentId: this._id,
-    status: "pending",
-  });
-
-  // Cancel the current appointment
-  await this.cancel("Rescheduled to " + newDate.toLocaleDateString() + " at " + newTimeSlot, "system");
-
-  return newAppointment.save();
-};
-
-// Instance method to send reminder
-AppointmentSchema.methods.markReminderSent = async function() {
-  this.reminderSent = true;
-  this.reminderSentAt = new Date();
-  return this.save();
-};
-
-// Static method to get doctor's appointments for a date
+// ── Static methods ────────────────────────────────────────────
 AppointmentSchema.statics.getDoctorAppointments = async function(doctorId, date) {
   const startDate = new Date(date);
   startDate.setHours(0, 0, 0, 0);
@@ -302,7 +222,6 @@ AppointmentSchema.statics.getDoctorAppointments = async function(doctorId, date)
   .lean();
 };
 
-// Static method to get patient's upcoming appointments
 AppointmentSchema.statics.getPatientUpcoming = async function(patientMemberId, limit = 10) {
   const now = new Date();
   
@@ -317,7 +236,6 @@ AppointmentSchema.statics.getPatientUpcoming = async function(patientMemberId, l
   .lean();
 };
 
-// Static method to get patient's appointment history
 AppointmentSchema.statics.getPatientHistory = async function(patientMemberId, page = 1, limit = 20) {
   const skip = (page - 1) * limit;
   
@@ -345,7 +263,6 @@ AppointmentSchema.statics.getPatientHistory = async function(patientMemberId, pa
   };
 };
 
-// Static method to get appointment statistics for a doctor
 AppointmentSchema.statics.getDoctorStats = async function(doctorId, startDate, endDate) {
   const stats = await this.aggregate([
     {
@@ -379,7 +296,6 @@ AppointmentSchema.statics.getDoctorStats = async function(doctorId, startDate, e
   return result;
 };
 
-// Static method to get available slots for a doctor on a specific date
 AppointmentSchema.statics.getAvailableSlots = async function(doctorId, date, existingSlots = []) {
   const startDate = new Date(date);
   startDate.setHours(0, 0, 0, 0);
@@ -395,12 +311,10 @@ AppointmentSchema.statics.getAvailableSlots = async function(doctorId, date, exi
   .lean();
 
   const bookedSlotTimes = new Set(bookedSlots.map(s => s.timeSlot));
-  
-  // Filter available slots
   return existingSlots.filter(slot => !bookedSlotTimes.has(slot));
 };
 
-// Check if model exists before creating it
+// ── Check if model exists before creating it ──────────────────
 const Appointment = mongoose.models.Appointment || mongoose.model("Appointment", AppointmentSchema);
 
 export default Appointment;

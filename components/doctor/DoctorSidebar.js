@@ -1,11 +1,64 @@
+// components/doctor/DoctorSidebar.jsx
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { LayoutGrid, Calendar, Star, User, CreditCard, LogOut, ArrowLeft } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { LayoutGrid, Calendar, Star, User, CreditCard, LogOut, ArrowLeft, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
 
 export default function DoctorSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [doctorData, setDoctorData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  useEffect(() => {
+    fetchDoctorData();
+  }, []);
+
+  const fetchDoctorData = async () => {
+    try {
+      const response = await fetch('/api/doctor/profile');
+      const result = await response.json();
+      
+      if (result.success) {
+        setDoctorData(result.data);
+      }
+    } catch (error) {
+      console.error('Error fetching doctor data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      const response = await fetch('/api/auth/logout', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      localStorage.removeItem('token');
+      sessionStorage.clear();
+      
+      router.push('/login');
+      router.refresh();
+    } catch (error) {
+      console.error('Logout error:', error);
+      router.push('/login');
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
+  const getInitials = (name) => {
+    if (!name) return 'D';
+    const parts = name.trim().split(' ');
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+  };
 
   const navItems = [
     { name: "Overview", href: "/doctor/dashboard", icon: LayoutGrid },
@@ -28,23 +81,29 @@ export default function DoctorSidebar() {
       <div className="px-4 mb-6">
         <div className="bg-white/5 rounded-2xl p-4 border border-white/10 flex items-start gap-3">
           <div className="w-10 h-10 rounded-xl bg-[var(--color-pulse-red)] flex items-center justify-center font-bold text-sm shrink-0">
-            PM
+            {loading ? 'D' : getInitials(doctorData?.fullName || 'Dr. Doctor')}
           </div>
           <div className="flex-1 overflow-hidden">
-            <h3 className="font-bold text-sm truncate">Dr. Priya Mehta</h3>
-            <p className="text-white/50 text-xs truncate mb-2">Cardiologist · Apollo, ...</p>
+            <h3 className="font-bold text-sm truncate">
+              {loading ? 'Loading...' : doctorData?.fullName || 'Dr. Doctor'}
+            </h3>
+            <p className="text-white/50 text-xs truncate mb-2">
+              {loading ? '...' : `${doctorData?.specialty || 'General'} · ${doctorData?.city || 'Your City'}`}
+            </p>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1 text-xs font-medium text-[var(--color-warm-amber)]">
-                <Star size={12} fill="currentColor" /> 4.9 <span className="text-white/50">(312)</span>
+                <Star size={12} fill="currentColor" /> {doctorData?.rating || 0} <span className="text-white/50">({doctorData?.reviewCount || 0})</span>
               </div>
-              <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full text-white/80">Free Plan</span>
+              <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full text-white/80">
+                {doctorData?.plan || 'Free'} Plan
+              </span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-4 space-y-1">
+      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href || (pathname?.startsWith(item.href) && item.href !== '/doctor');
           const Icon = item.icon;
@@ -91,19 +150,26 @@ export default function DoctorSidebar() {
         </div>
 
         <div className="space-y-1">
-          <Link href="/dashboard" className="flex items-center gap-3 px-4 py-2 text-xs text-[var(--color-doctor-sidebar-text)] hover:text-white transition-colors">
+          <Link href="/dashboard" className="flex items-center gap-3 px-4 py-2 text-xs text-[var(--color-doctor-sidebar-text)] hover:text-white transition-colors rounded-lg hover:bg-white/5">
             <ArrowLeft size={14} />
             View patient side
           </Link>
           <button 
-            onClick={async () => {
-              await fetch('/api/doctor/auth/logout', { method: 'POST' });
-              window.location.href = '/doctor';
-            }}
-            className="w-full flex items-center gap-3 px-4 py-2 text-xs text-[var(--color-doctor-sidebar-text)] hover:text-white transition-colors"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="w-full flex items-center gap-3 px-4 py-2 text-xs text-[var(--color-doctor-sidebar-text)] hover:text-white transition-colors rounded-lg hover:bg-white/5 disabled:opacity-50"
           >
-            <LogOut size={14} />
-            Sign Out
+            {loggingOut ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Logging out...
+              </>
+            ) : (
+              <>
+                <LogOut size={14} />
+                Sign Out
+              </>
+            )}
           </button>
         </div>
       </div>

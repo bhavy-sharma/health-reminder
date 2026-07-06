@@ -7,20 +7,27 @@ import User from "@/models/User";
 import Review from "@/models/Review";
 import Appointment from "@/models/Appointment";
 
-export async function GET(request, { params }) {
+export async function GET(request, context) {
   try {
     console.log('===== DOCTOR DETAIL API =====');
+    console.log('Request URL:', request.url);
+    console.log('Context:', context);
     
-    const { id } = params;
-    console.log('Doctor ID:', id);
+    // Get the ID from context.params
+    const params = await context.params;
+    const id = params?.id;
+    
+    console.log('Extracted ID:', id);
     
     if (!id) {
+      console.log('No ID provided - params:', params);
       return NextResponse.json(
         { error: "Doctor ID is required" },
         { status: 400 }
       );
     }
 
+    // Validate user role - ADMIN or STAFF only
     const authResult = await validateUserRole(request, ['admin', 'staff']);
     
     if (!authResult.valid) {
@@ -40,15 +47,17 @@ export async function GET(request, { params }) {
     const doctor = await Doctor.findById(id).lean();
     
     if (!doctor) {
+      console.log('Doctor not found:', id);
       return NextResponse.json(
         { error: "Doctor not found" },
         { status: 404 }
       );
     }
 
+    console.log('Doctor found:', doctor.name);
+
     // Get associated user
     const user = await User.findOne({ 
-      role: 'doctor',
       email: doctor.email 
     }).select('-password -otp -resetToken').lean();
 
@@ -109,8 +118,20 @@ export async function GET(request, { params }) {
 
 // ── PUT: Update doctor ──────────────────────────────────────
 
-export async function PUT(request, { params }) {
+export async function PUT(request, context) {
   try {
+    console.log('===== DOCTOR UPDATE API =====');
+    
+    const params = await context.params;
+    const id = params?.id;
+    
+    if (!id) {
+      return NextResponse.json(
+        { error: "Doctor ID is required" },
+        { status: 400 }
+      );
+    }
+
     const authResult = await validateUserRole(request, ['admin', 'staff']);
     
     if (!authResult.valid) {
@@ -122,7 +143,6 @@ export async function PUT(request, { params }) {
 
     await connectToDatabase();
 
-    const { id } = params;
     const body = await request.json();
     
     const doctor = await Doctor.findById(id);

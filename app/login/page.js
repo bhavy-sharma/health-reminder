@@ -47,7 +47,6 @@ export default function LoginPage() {
       } else if (userRole === 'doctor') {
         router.push("/doctor/dashboard");
       } else {
-        // Default to patient dashboard
         router.push("/dashboard");
       }
     } catch (err) {
@@ -62,7 +61,6 @@ export default function LoginPage() {
       <Navbar />
 
       <main className="flex-1 flex items-center justify-center px-4 py-12 md:py-16">
-        {/* Enriched & slightly wider container card (max-w-6xl) */}
         <div className="w-full max-w-6xl flex flex-col md:flex-row bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
 
           {/* Left Side: Dark Navy Branding Panel */}
@@ -112,7 +110,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Right Side: Form Panel with wider max-w-lg container */}
+          {/* Right Side: Form Panel */}
           <div className="w-full md:w-1/2 p-8 md:p-14 flex flex-col justify-center bg-white">
             <div className="max-w-lg w-full mx-auto">
               <h2 className="text-3xl font-serif font-bold text-gray-900 mb-2">
@@ -218,6 +216,19 @@ export default function LoginPage() {
                 Don&apos;t have an account?{" "}
                 <Link href="/signup" className="font-semibold text-gray-900 hover:underline">
                   Sign up
+                </Link>
+              </div>
+
+              {/* ── Are you a doctor? ────────────────────────────── */}
+              <div className="mt-4 pt-4 border-t border-gray-200 text-center">
+                <Link 
+                  href="/doctor" 
+                  className="text-sm text-gray-500 hover:text-gray-900 transition-colors font-medium"
+                >
+                  Are you a doctor?{" "}
+                  <span className="text-[#0D1B2A] font-semibold hover:underline">
+                    Sign in here →
+                  </span>
                 </Link>
               </div>
             </div>

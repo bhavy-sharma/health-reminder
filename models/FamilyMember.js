@@ -16,6 +16,11 @@ const FamilyMemberSchema = new mongoose.Schema(
       required: [true, "Name is required"],
       trim: true,
     },
+    phone: {
+      type: String,
+      trim: true,
+      match: [/^[0-9]{10}$/, "Please enter a valid 10-digit phone number"],
+    },
     relationship: {
       type: String,
       enum: ["self", "spouse", "father", "mother", "son", "daughter", "grandfather", "grandmother", "other"],

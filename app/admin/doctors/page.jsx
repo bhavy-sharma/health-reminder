@@ -21,37 +21,167 @@ import {
   UserX,
   UserCheck,
   Trash2,
+  XCircle,
 } from 'lucide-react';
 import AdminSidebar from '@/components/admin/Sidebar';
 import { useRouter } from 'next/navigation';
 
 const specialtyOptions = ['All Specialties', 'Cardiologist', 'Diabetologist', 'Neurologist', 'Orthopedic', 'Gynecologist', 'Pediatrician'];
-const statusOptions = ['All Status', 'verified', 'pending'];
+const statusOptions = ['All Status', 'pending', 'approved', 'rejected', 'suspended'];
 
-function StarRating({ rating }) {
+// ── Modal Component ──────────────────────────────────────────
+function ActionModal({ isOpen, onClose, onConfirm, title, message, action, loading, doctorName }) {
+  const [reason, setReason] = useState('');
+  const [note, setNote] = useState('');
+
+  if (!isOpen) return null;
+
+  const handleConfirm = () => {
+    if (action === 'reject' && !reason.trim()) {
+      return;
+    }
+    onConfirm(reason, note);
+  };
+
+  const getActionColor = () => {
+    switch (action) {
+      case 'approve': return 'bg-emerald-500 hover:bg-emerald-600';
+      case 'reject': return 'bg-red-500 hover:bg-red-600';
+      case 'suspend': return 'bg-amber-500 hover:bg-amber-600';
+      case 'unsuspend': return 'bg-emerald-500 hover:bg-emerald-600';
+      default: return 'bg-blue-500 hover:bg-blue-600';
+    }
+  };
+
   return (
-    <span className="flex items-center gap-1 text-sm text-gray-600">
-      <span className="text-amber-400">★</span>
-      {rating}
-    </span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <p className="text-sm text-gray-600 mb-4">
+          {message}
+          {doctorName && <span className="font-semibold text-gray-900"> {doctorName}</span>}
+        </p>
+
+        {(action === 'reject' || action === 'suspend') && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {action === 'reject' ? 'Rejection Reason' : 'Suspension Reason'} *
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder={`Enter ${action === 'reject' ? 'rejection' : 'suspension'} reason...`}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 text-sm"
+              rows="3"
+            />
+            {action === 'reject' && !reason.trim() && (
+              <p className="text-xs text-red-500 mt-1">Please provide a reason</p>
+            )}
+          </div>
+        )}
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Admin Note <span className="text-gray-400 text-xs">(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Add an internal note..."
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 text-sm"
+          />
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={loading || (action === 'reject' && !reason.trim())}
+            className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50 ${getActionColor()}`}
+          >
+            {loading ? (
+              <div className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Processing...
+              </div>
+            ) : (
+              action.charAt(0).toUpperCase() + action.slice(1)
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Toast Component ──────────────────────────────────────────
+function Toast({ message, type, onClose }) {
+  useEffect(() => {
+    const timer = setTimeout(onClose, 4000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  return (
+    <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm ${
+      type === 'error' ? 'bg-red-500' : type === 'warning' ? 'bg-amber-500' : 'bg-emerald-500'
+    }`}>
+      {message}
+    </div>
   );
 }
 
 function StatusBadge({ status }) {
-  if (status === 'verified') {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-        <CheckCircle className="w-3.5 h-3.5" />
-        Verified
-      </span>
-    );
+  switch (status) {
+    case 'approved':
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+          <CheckCircle className="w-3.5 h-3.5" />
+          Approved
+        </span>
+      );
+    case 'pending':
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+          <Clock className="w-3.5 h-3.5" />
+          Pending
+        </span>
+      );
+    case 'rejected':
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-600 border border-red-200">
+          <XCircle className="w-3.5 h-3.5" />
+          Rejected
+        </span>
+      );
+    case 'suspended':
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-red-50 text-red-600 border border-red-200">
+          <XCircle className="w-3.5 h-3.5" />
+          Suspended
+        </span>
+      );
+    default:
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-gray-50 text-gray-600 border border-gray-200">
+          Unknown
+        </span>
+      );
   }
-  return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-      <Clock className="w-3.5 h-3.5" />
-      Pending
-    </span>
-  );
 }
 
 export default function AdminDoctorsPage() {
@@ -69,8 +199,26 @@ export default function AdminDoctorsPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [stats, setStats] = useState({ verified: 0, pending: 0 });
+  const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0, suspended: 0 });
   const [actionLoading, setActionLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+  
+  // Modal state
+  const [modal, setModal] = useState({
+    isOpen: false,
+    action: '',
+    doctorId: null,
+    doctorName: '',
+    title: '',
+    message: '',
+  });
+
+  // Show toast notification
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
+
+  const closeToast = () => setToast(null);
 
   // Fetch doctors data
   const fetchDoctors = useCallback(async (showRefresh = false) => {
@@ -101,7 +249,7 @@ export default function AdminDoctorsPage() {
         setDoctors(result.data.doctors);
         setTotal(result.data.total);
         setTotalPages(result.data.totalPages);
-        setStats(result.data.stats);
+        setStats(result.data.stats || { pending: 0, approved: 0, rejected: 0, suspended: 0 });
       } else {
         throw new Error(result.message || 'Failed to load doctors');
       }
@@ -144,13 +292,45 @@ export default function AdminDoctorsPage() {
     router.push(`/admin/doctors/${doctorId}`);
   };
 
-  const handleDoctorAction = async (action, doctorIds, reason = '') => {
+  // Open modal for action
+  const openActionModal = (action, doctorId, doctorName) => {
+    const actionTitles = {
+      approve: 'Approve Doctor',
+      reject: 'Reject Doctor',
+      suspend: 'Suspend Doctor',
+      unsuspend: 'Unsuspend Doctor',
+    };
+
+    const actionMessages = {
+      approve: 'Are you sure you want to approve',
+      reject: 'Are you sure you want to reject',
+      suspend: 'Are you sure you want to suspend',
+      unsuspend: 'Are you sure you want to unsuspend',
+    };
+
+    setModal({
+      isOpen: true,
+      action,
+      doctorId,
+      doctorName,
+      title: actionTitles[action],
+      message: actionMessages[action],
+    });
+  };
+
+  const handleDoctorAction = async (action, doctorId, reason = '', note = '') => {
     try {
       setActionLoading(true);
-      const response = await fetch('/api/admin/doctors', {
+      
+      const response = await fetch('/api/admin/doctors/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, doctorIds, reason }),
+        body: JSON.stringify({ 
+          action, 
+          doctorIds: [doctorId], 
+          reason, 
+          note 
+        }),
       });
 
       const result = await response.json();
@@ -160,14 +340,16 @@ export default function AdminDoctorsPage() {
       }
 
       if (result.success) {
+        showToast(`Doctor ${action}d successfully!`);
         fetchDoctors(true);
         setOpenMenuId(null);
+        setModal({ isOpen: false, action: '', doctorId: null, doctorName: '', title: '', message: '' });
       } else {
         throw new Error(result.message || `Failed to ${action} doctor`);
       }
     } catch (error) {
-      console.error(`Error ${action}ing doctors:`, error);
-      alert(`Failed to ${action} doctor(s): ${error.message}`);
+      console.error(`Error ${action}ing doctor:`, error);
+      showToast(`Failed to ${action} doctor: ${error.message}`, 'error');
     } finally {
       setActionLoading(false);
     }
@@ -228,6 +410,27 @@ export default function AdminDoctorsPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F2] flex">
+      {/* Toast Notification */}
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={closeToast} 
+        />
+      )}
+
+      {/* Action Modal */}
+      <ActionModal
+        isOpen={modal.isOpen}
+        onClose={() => setModal({ isOpen: false, action: '', doctorId: null, doctorName: '', title: '', message: '' })}
+        onConfirm={(reason, note) => handleDoctorAction(modal.action, modal.doctorId, reason, note)}
+        title={modal.title}
+        message={modal.message}
+        action={modal.action}
+        loading={actionLoading}
+        doctorName={modal.doctorName}
+      />
+
       <AdminSidebar 
         active={active} 
         setActive={setActive} 
@@ -272,7 +475,7 @@ export default function AdminDoctorsPage() {
             <div>
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">Doctors</h1>
               <p className="text-sm text-gray-400 mt-1">
-                {stats.verified} verified · {stats.pending} pending verification
+                {stats.approved || 0} approved · {stats.pending || 0} pending · {stats.rejected || 0} rejected
               </p>
             </div>
             <button className="flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors">
@@ -288,10 +491,10 @@ export default function AdminDoctorsPage() {
                   <Shield className="w-5 h-5 text-amber-600 shrink-0" />
                   <div>
                     <p className="font-semibold text-amber-800 text-sm">
-                      {stats.pending} doctors awaiting verification
+                      {stats.pending} doctors awaiting approval
                     </p>
                     <p className="text-xs text-amber-600/80">
-                      Verify doctors before they can start practicing on the platform
+                      Review and approve doctor applications before they can start practicing
                     </p>
                   </div>
                 </div>
@@ -359,7 +562,11 @@ export default function AdminDoctorsPage() {
                       </div>
                       <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-1 text-xs text-gray-500">
                         <span className="font-mono">{doctor.medicalRegNo}</span>
-                        <span>★ {doctor.rating} ({doctor.reviews} reviews)</span>
+                        {doctor.status === 'approved' && (
+                          <>
+                            <span>★ {doctor.rating || 0} ({doctor.reviews || 0} reviews)</span>
+                          </>
+                        )}
                         <span className="hidden sm:inline">Joined {new Date(doctor.joined).toLocaleDateString()}</span>
                       </div>
                     </div>
@@ -369,22 +576,18 @@ export default function AdminDoctorsPage() {
                   <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
                     <StatusBadge status={doctor.status} />
                     
-                    {doctor.pending ? (
+                    {doctor.status === 'pending' ? (
                       <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => handleDoctorAction('verify', [doctor.id])}
+                          onClick={() => openActionModal('approve', doctor.id, doctor.name)}
                           disabled={actionLoading}
                           className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
                         >
                           <Check className="w-3.5 h-3.5" />
-                          <span className="hidden xs:inline">Accept</span>
+                          <span className="hidden xs:inline">Approve</span>
                         </button>
                         <button
-                          onClick={() => {
-                            if (confirm(`Are you sure you want to reject ${doctor.name}?`)) {
-                              handleDoctorAction('reject', [doctor.id]);
-                            }
-                          }}
+                          onClick={() => openActionModal('reject', doctor.id, doctor.name)}
                           disabled={actionLoading}
                           className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
                         >
@@ -411,33 +614,43 @@ export default function AdminDoctorsPage() {
                             >
                               <Eye className="w-4 h-4" /> View Profile
                             </button>
+                            {doctor.status === 'approved' && (
+                              <button
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  openActionModal('suspend', doctor.id, doctor.name);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-amber-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                              >
+                                <UserX className="w-4 h-4" /> Suspend
+                              </button>
+                            )}
+                            {doctor.status === 'suspended' && (
+                              <button
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  openActionModal('unsuspend', doctor.id, doctor.name);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-emerald-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                              >
+                                <UserCheck className="w-4 h-4" /> Unsuspend
+                              </button>
+                            )}
+                            {doctor.status === 'rejected' && (
+                              <button
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  openActionModal('approve', doctor.id, doctor.name);
+                                }}
+                                className="w-full text-left px-4 py-2 text-sm text-emerald-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                              >
+                                <CheckCircle className="w-4 h-4" /> Reconsider & Approve
+                              </button>
+                            )}
                             <button
                               onClick={() => {
                                 setOpenMenuId(null);
-                                const reason = prompt('Enter suspension reason:');
-                                if (reason && reason.trim()) {
-                                  handleDoctorAction('suspend', [doctor.id], reason);
-                                }
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-amber-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
-                            >
-                              <UserX className="w-4 h-4" /> Suspend
-                            </button>
-                            <button
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                handleDoctorAction('unsuspend', [doctor.id]);
-                              }}
-                              className="w-full text-left px-4 py-2 text-sm text-emerald-600 hover:bg-gray-50 transition-colors flex items-center gap-2"
-                            >
-                              <UserCheck className="w-4 h-4" /> Unsuspend
-                            </button>
-                            <button
-                              onClick={() => {
-                                setOpenMenuId(null);
-                                if (confirm(`Are you sure you want to delete ${doctor.name}?`)) {
-                                  handleDoctorAction('delete', [doctor.id]);
-                                }
+                                openActionModal('delete', doctor.id, doctor.name);
                               }}
                               className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50 transition-colors flex items-center gap-2"
                             >
@@ -488,11 +701,15 @@ export default function AdminDoctorsPage() {
             <div className="flex items-center gap-3">
               <span className="inline-flex items-center gap-1">
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
-                {stats.verified} verified
+                {stats.approved || 0} approved
               </span>
               <span className="inline-flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5 text-amber-500" />
-                {stats.pending} pending
+                {stats.pending || 0} pending
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <XCircle className="w-3.5 h-3.5 text-red-500" />
+                {stats.rejected || 0} rejected
               </span>
             </div>
           </div>

@@ -1,3 +1,4 @@
+// app/api/family/members/route.js
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import Family from "@/models/Family";
@@ -131,6 +132,7 @@ export async function POST(request) {
     const {
       familyId,
       name,
+      phone,  // ← Added phone
       relationship,
       dateOfBirth,
       gender,
@@ -216,6 +218,7 @@ export async function POST(request) {
       familyId,
       userId: memberUserId,
       name,
+      phone: phone || '',  // ← Added phone
       relationship,
       dateOfBirth: new Date(dateOfBirth),
       gender,
