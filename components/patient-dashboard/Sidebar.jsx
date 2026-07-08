@@ -17,6 +17,7 @@ import {
     LogOut,
     Home,
     Calendar,
+    UserCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -52,6 +53,7 @@ const Sidebar = () => {
         { icon: Stethoscope, label: 'Doctor Visit Prep', href: '/doctor-visit' },
         { icon: Search, label: 'Find Doctors', href: '/find-doctors' },
         { icon: Users, label: 'Family Members', href: '/family-members' },
+        { icon: UserCircle, label: 'My Profile', href: '/profile' },
     ];
 
     useEffect(() => {

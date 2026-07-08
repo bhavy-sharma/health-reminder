@@ -30,6 +30,41 @@ const UserSchema = new mongoose.Schema(
       default: "patient",
       enum: ["patient", "doctor", "admin"],
     },
+    address: {
+      street: {
+        type: String,
+        trim: true,
+      },
+      area: {
+        type: String,
+        trim: true,
+      },
+      landmark: {
+        type: String,
+        trim: true,
+      },
+      city: {
+        type: String,
+        trim: true,
+      },
+      district: {
+        type: String,
+        trim: true,
+      },
+      state: {
+        type: String,
+        trim: true,
+      },
+      pincode: {
+        type: String,
+        trim: true,
+      },
+      country: {
+        type: String,
+        default: "India",
+        trim: true,
+      },
+    },
     isSuspended: {
       type: Boolean,
       default: false,
@@ -102,11 +137,51 @@ const UserSchema = new mongoose.Schema(
   }
 );
 
-// Indexes
+// ── Indexes ──────────────────────────────────────────────────────
 UserSchema.index({ mobile: 1 });
 UserSchema.index({ email: 1 });
 UserSchema.index({ "families.familyId": 1 });
 UserSchema.index({ role: 1 });
 UserSchema.index({ isSuspended: 1 });
+UserSchema.index({ "address.city": 1 });
+UserSchema.index({ "address.state": 1 });
+UserSchema.index({ "address.district": 1 });
+
+// ── Virtual for full address ──────────────────────────────────
+UserSchema.virtual("fullAddress").get(function() {
+  const parts = [];
+  if (this.address?.street) parts.push(this.address.street);
+  if (this.address?.area) parts.push(this.address.area);
+  if (this.address?.landmark) parts.push(this.address.landmark);
+  if (this.address?.city) parts.push(this.address.city);
+  if (this.address?.district) parts.push(this.address.district);
+  if (this.address?.state) parts.push(this.address.state);
+  if (this.address?.pincode) parts.push(this.address.pincode);
+  if (this.address?.country) parts.push(this.address.country);
+  return parts.join(", ");
+});
+
+// ── Virtual for formatted location ────────────────────────────
+UserSchema.virtual("locationDisplay").get(function() {
+  const parts = [];
+  if (this.address?.city) parts.push(this.address.city);
+  if (this.address?.state) parts.push(this.address.state);
+  return parts.join(", ") || "Location not specified";
+});
+
+// ── Method to get address as object ────────────────────────────
+UserSchema.methods.getAddress = function() {
+  return {
+    street: this.address?.street || "",
+    area: this.address?.area || "",
+    landmark: this.address?.landmark || "",
+    city: this.address?.city || "",
+    district: this.address?.district || "",
+    state: this.address?.state || "",
+    pincode: this.address?.pincode || "",
+    country: this.address?.country || "India",
+    full: this.fullAddress,
+  };
+};
 
 export default mongoose.models.User || mongoose.model("User", UserSchema);

@@ -43,6 +43,42 @@ const DoctorSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    address: {
+      street: {
+        type: String,
+        trim: true,
+      },
+      area: {
+        type: String,
+        trim: true,
+      },
+      landmark: {
+        type: String,
+        trim: true,
+      },
+      city: {
+        type: String,
+        trim: true,
+      },
+      district: {
+        type: String,
+        trim: true,
+      },
+      state: {
+        type: String,
+        trim: true,
+      },
+      pincode: {
+        type: String,
+        trim: true,
+      },
+      country: {
+        type: String,
+        default: "India",
+        trim: true,
+      },
+    },
+    // Keep the old city field for backward compatibility
     city: {
       type: String,
       trim: true,
@@ -91,7 +127,7 @@ const DoctorSchema = new mongoose.Schema(
     },
     isVerified: {
       type: Boolean,
-      default: false, // Admin approval required
+      default: false,
     },
     isSuspended: {
       type: Boolean,
@@ -154,11 +190,51 @@ const DoctorSchema = new mongoose.Schema(
   }
 );
 
-// Indexes
+// ── Indexes ──────────────────────────────────────────────────────
 DoctorSchema.index({ email: 1 });
 DoctorSchema.index({ specialty: 1 });
 DoctorSchema.index({ city: 1 });
 DoctorSchema.index({ status: 1 });
 DoctorSchema.index({ isVerified: 1 });
+DoctorSchema.index({ "address.city": 1 });
+DoctorSchema.index({ "address.state": 1 });
+DoctorSchema.index({ "address.district": 1 });
+
+// ── Virtual for full address ──────────────────────────────────
+DoctorSchema.virtual("fullAddress").get(function() {
+  const parts = [];
+  if (this.address?.street) parts.push(this.address.street);
+  if (this.address?.area) parts.push(this.address.area);
+  if (this.address?.landmark) parts.push(this.address.landmark);
+  if (this.address?.city) parts.push(this.address.city);
+  if (this.address?.district) parts.push(this.address.district);
+  if (this.address?.state) parts.push(this.address.state);
+  if (this.address?.pincode) parts.push(this.address.pincode);
+  if (this.address?.country) parts.push(this.address.country);
+  return parts.join(", ");
+});
+
+// ── Virtual for formatted location ────────────────────────────
+DoctorSchema.virtual("locationDisplay").get(function() {
+  const parts = [];
+  if (this.address?.city) parts.push(this.address.city);
+  if (this.address?.state) parts.push(this.address.state);
+  return parts.join(", ") || this.city || "Location not specified";
+});
+
+// ── Method to get address as object ────────────────────────────
+DoctorSchema.methods.getAddress = function() {
+  return {
+    street: this.address?.street || "",
+    area: this.address?.area || "",
+    landmark: this.address?.landmark || "",
+    city: this.address?.city || this.city || "",
+    district: this.address?.district || "",
+    state: this.address?.state || "",
+    pincode: this.address?.pincode || "",
+    country: this.address?.country || "India",
+    full: this.fullAddress,
+  };
+};
 
 export default mongoose.models.Doctor || mongoose.model("Doctor", DoctorSchema);

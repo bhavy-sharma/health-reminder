@@ -52,7 +52,7 @@ export async function GET(request) {
       );
     }
 
-    // Format the profile data
+    // Format the profile data with full address
     const profileData = {
       fullName: doctor.name || '',
       specialty: doctor.specialty || '',
@@ -63,7 +63,16 @@ export async function GET(request) {
       videoFee: doctor.videoConsultFee || 0,
       bio: doctor.about || '',
       hospital: doctor.hospital || '',
-      address: doctor.address || '',
+      address: {
+        street: doctor.address?.street || '',
+        area: doctor.address?.area || '',
+        landmark: doctor.address?.landmark || '',
+        city: doctor.address?.city || doctor.city || '',
+        district: doctor.address?.district || '',
+        state: doctor.address?.state || '',
+        pincode: doctor.address?.pincode || '',
+        country: doctor.address?.country || 'India',
+      },
       city: doctor.city || '',
       languages: doctor.languages || [],
       conditions: doctor.conditions || [],
@@ -90,9 +99,6 @@ export async function GET(request) {
     );
   }
 }
-
-
-// app/api/doctor/profile/route.js (continued)
 
 export async function PUT(request) {
   try {
@@ -140,7 +146,7 @@ export async function PUT(request) {
       );
     }
 
-    // Update fields
+    // Update fields with full address support
     const updateFields = {
       name: body.fullName,
       specialty: body.specialty,
@@ -151,8 +157,19 @@ export async function PUT(request) {
       videoConsultFee: body.videoFee,
       about: body.bio,
       hospital: body.hospital,
-      address: body.address,
-      city: body.city,
+      // Address with all fields
+      address: {
+        street: body.address?.street || '',
+        area: body.address?.area || '',
+        landmark: body.address?.landmark || '',
+        city: body.address?.city || body.city || '',
+        district: body.address?.district || '',
+        state: body.address?.state || '',
+        pincode: body.address?.pincode || '',
+        country: body.address?.country || 'India',
+      },
+      // Keep old city field for backward compatibility
+      city: body.address?.city || body.city || '',
       languages: body.languages || [],
       conditions: body.conditions || [],
       education: body.education || [],
@@ -161,9 +178,11 @@ export async function PUT(request) {
     };
 
     // Remove undefined fields
-    Object.keys(updateFields).forEach(key => 
-      updateFields[key] === undefined && delete updateFields[key]
-    );
+    Object.keys(updateFields).forEach(key => {
+      if (updateFields[key] === undefined) {
+        delete updateFields[key];
+      }
+    });
 
     const updatedDoctor = await Doctor.findByIdAndUpdate(
       doctor._id,
@@ -171,6 +190,14 @@ export async function PUT(request) {
       { new: true }
     ).select('-password');
 
+    if (!updatedDoctor) {
+      return NextResponse.json(
+        { error: "Failed to update profile" },
+        { status: 500 }
+      );
+    }
+
+    // Return formatted response with full address
     return NextResponse.json({
       success: true,
       message: "Profile updated successfully",
@@ -184,21 +211,51 @@ export async function PUT(request) {
         videoFee: updatedDoctor.videoConsultFee,
         bio: updatedDoctor.about,
         hospital: updatedDoctor.hospital,
-        address: updatedDoctor.address,
-        city: updatedDoctor.city,
-        languages: updatedDoctor.languages,
-        conditions: updatedDoctor.conditions,
-        education: updatedDoctor.education,
-        awards: updatedDoctor.awards,
-        slots: updatedDoctor.appointmentSlots,
+        address: {
+          street: updatedDoctor.address?.street || '',
+          area: updatedDoctor.address?.area || '',
+          landmark: updatedDoctor.address?.landmark || '',
+          city: updatedDoctor.address?.city || updatedDoctor.city || '',
+          district: updatedDoctor.address?.district || '',
+          state: updatedDoctor.address?.state || '',
+          pincode: updatedDoctor.address?.pincode || '',
+          country: updatedDoctor.address?.country || 'India',
+        },
+        city: updatedDoctor.city || '',
+        languages: updatedDoctor.languages || [],
+        conditions: updatedDoctor.conditions || [],
+        education: updatedDoctor.education || [],
+        awards: updatedDoctor.awards || [],
+        slots: updatedDoctor.appointmentSlots || [],
         avatarColor: updatedDoctor.avatarColor,
         isVerified: updatedDoctor.isVerified,
         status: updatedDoctor.status,
+        rating: updatedDoctor.rating,
+        reviewCount: updatedDoctor.reviewCount,
       },
     });
 
   } catch (error) {
     console.error("Doctor profile update error:", error);
+    
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return NextResponse.json(
+        { error: `${field} already exists. Please use a different ${field}.` },
+        { status: 400 }
+      );
+    }
+
+    // Handle validation errors
+    if (error.name === "ValidationError") {
+      const errors = Object.values(error.errors).map(e => e.message);
+      return NextResponse.json(
+        { error: errors[0] },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: error.message || "Failed to update profile" },
       { status: 500 }

@@ -17,7 +17,12 @@ export async function GET(request) {
     const quickFilter = searchParams.get("quickFilter") || "";
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 10;
-    const sortBy = searchParams.get("sortBy") || "rating"; // rating, distance, fee, experience
+    const sortBy = searchParams.get("sortBy") || "rating";
+    
+    // Location filters
+    const city = searchParams.get("city") || "";
+    const district = searchParams.get("district") || "";
+    const state = searchParams.get("state") || "";
 
     // Build query - only show approved and verified doctors
     const query = { 
@@ -26,16 +31,44 @@ export async function GET(request) {
       isSuspended: false,
     };
     
+    // Location based filtering
+    if (city || district || state) {
+      query.$or = [];
+      
+      if (city) {
+        query.$or.push({ 
+          $or: [
+            { "address.city": { $regex: city, $options: 'i' } },
+            { city: { $regex: city, $options: 'i' } }
+          ]
+        });
+      }
+      
+      if (district) {
+        query.$or.push({ "address.district": { $regex: district, $options: 'i' } });
+      }
+      
+      if (state) {
+        query.$or.push({ 
+          $or: [
+            { "address.state": { $regex: state, $options: 'i' } },
+            { state: { $regex: state, $options: 'i' } }
+          ]
+        });
+      }
+    }
+
     // Search filter
     if (search) {
       const searchRegex = new RegExp(search, 'i');
-      query.$or = [
+      query.$or = query.$or || [];
+      query.$or.push(
         { name: searchRegex },
         { specialty: searchRegex },
         { hospital: searchRegex },
-        { city: searchRegex },
+        { "address.city": searchRegex },
         { conditions: searchRegex },
-      ];
+      );
     }
 
     // Specialty filter
@@ -64,7 +97,8 @@ export async function GET(request) {
         sortOption = { experience: -1 };
         break;
       case 'distance':
-        // Default sort by rating if distance not available
+        // Sort by distance would require geolocation calculation
+        // For now, we'll just sort by rating
         sortOption = { rating: -1 };
         break;
       default:
@@ -92,8 +126,20 @@ export async function GET(request) {
           ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews 
           : 0;
 
-        // Calculate distance (mock for now - would use geolocation in production)
-        const distance = (Math.random() * 5 + 0.5).toFixed(1);
+        // Calculate distance based on address similarity
+        let distance = 'Unknown';
+        if (city && doctor.address?.city) {
+          // Simple city match - in production use geolocation
+          if (doctor.address.city.toLowerCase() === city.toLowerCase()) {
+            distance = 'Nearby';
+          } else if (doctor.address.district?.toLowerCase() === district?.toLowerCase()) {
+            distance = 'In your district';
+          } else if (doctor.address.state?.toLowerCase() === state?.toLowerCase()) {
+            distance = 'In your state';
+          } else {
+            distance = 'Other location';
+          }
+        }
 
         return {
           id: doctor._id,
@@ -104,14 +150,14 @@ export async function GET(request) {
           hospital: doctor.hospital || 'Private Practice',
           rating: Math.round(avgRating * 10) / 10 || 0,
           reviews: totalReviews,
-          distance: `${distance} km`,
+          distance: distance,
           experience: `${doctor.experience || 0} yrs exp`,
-          nextSlot: getNextSlot(),
           tags: doctor.conditions?.slice(0, 4) || [],
           languages: doctor.languages || ['English'],
           fee: doctor.consultationFee || 0,
           verified: doctor.isVerified || false,
           city: doctor.city,
+          address: doctor.address,
           about: doctor.about,
           tagline: doctor.tagline,
         };
@@ -133,6 +179,7 @@ export async function GET(request) {
           specialty,
           quickFilter,
           sortBy,
+          location: { city, district, state },
         },
       },
     });
@@ -142,67 +189,6 @@ export async function GET(request) {
       { 
         success: false, 
         message: error.message || "Failed to fetch doctors" 
-      },
-      { status: 500 }
-    );
-  }
-}
-
-// ── GET: Doctor Details ──────────────────────────────────────
-
-export async function GET_DOCTOR(request, { params }) {
-  try {
-    await connectToDatabase();
-
-    const { id } = params;
-    
-    const doctor = await Doctor.findById(id)
-      .select('-password')
-      .lean();
-
-    if (!doctor) {
-      return NextResponse.json(
-        { error: "Doctor not found" },
-        { status: 404 }
-      );
-    }
-
-    // Get reviews
-    const reviews = await Review.find({ 
-      doctorId: doctor._id,
-      isFlagged: false 
-    })
-    .sort({ createdAt: -1 })
-    .limit(20)
-    .lean();
-
-    const totalReviews = reviews.length;
-    const avgRating = totalReviews > 0 
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews 
-      : 0;
-
-    // Get available slots
-    const today = new Date();
-    const availableSlots = doctor.appointmentSlots || [];
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...doctor,
-        stats: {
-          avgRating: Math.round(avgRating * 10) / 10,
-          totalReviews,
-        },
-        reviews: reviews.slice(0, 5),
-        availableSlots,
-      },
-    });
-  } catch (error) {
-    console.error("Doctor details error:", error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        message: error.message || "Failed to fetch doctor details" 
       },
       { status: 500 }
     );
@@ -225,17 +211,4 @@ function getRandomColor() {
     '#06B6D4', '#D946EF', '#6B7280', '#1E40AF', '#BE185D'
   ];
   return colors[Math.floor(Math.random() * colors.length)];
-}
-
-function getNextSlot() {
-  const slots = [
-    'Today, 4:30 PM',
-    'Today, 6:00 PM',
-    'Tomorrow, 10:00 AM',
-    'Tomorrow, 2:30 PM',
-    'Wed, 11:30 AM',
-    'Thu, 9:00 AM',
-    'Fri, 3:00 PM',
-  ];
-  return slots[Math.floor(Math.random() * slots.length)];
 }

@@ -8,10 +8,10 @@ import Doctor from "@/models/Doctor";
 export async function GET(request) {
   try {
     console.log('===== DOCTOR APPOINTMENTS API =====');
-    
+
     // Get authenticated user
     const auth = await getAuthenticatedUser(request);
-    
+
     if (!auth || !auth.authenticated) {
       return NextResponse.json(
         { error: "Please login to continue" },
@@ -56,25 +56,25 @@ export async function GET(request) {
 
     // Build query
     const query = { doctorId: doctor._id };
-    
+
     if (status !== "all") {
       query.status = status;
     }
-    
+
     if (type !== "all") {
       query.type = type;
     }
 
     // Get appointments
     let appointments = await Appointment.find(query)
-      .sort({ appointmentDate: 1, timeSlot: 1 })
+      .sort({ createdAt: -1, appointmentDate: -1 }) // Newest first by created date
       .populate('patientMemberId', 'name avatarColor')
       .lean();
 
     // Search filter
     if (search) {
       const searchLower = search.toLowerCase();
-      appointments = appointments.filter(apt => 
+      appointments = appointments.filter(apt =>
         apt.patientName?.toLowerCase().includes(searchLower) ||
         apt.condition?.toLowerCase().includes(searchLower)
       );
@@ -88,10 +88,10 @@ export async function GET(request) {
       color: apt.patientMemberId?.avatarColor || getAvatarColor(apt.patientName || 'Unknown'),
       age: apt.patientAge || 'N/A',
       condition: apt.condition || 'General Checkup',
-      date: new Date(apt.appointmentDate).toLocaleDateString('en-US', { 
-        weekday: 'short', 
-        month: 'short', 
-        day: 'numeric' 
+      date: new Date(apt.appointmentDate).toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric'
       }),
       time: apt.timeSlot,
       type: apt.type || 'in-person',
@@ -133,10 +133,10 @@ export async function GET(request) {
 export async function PUT(request) {
   try {
     console.log('===== DOCTOR APPOINTMENTS UPDATE API =====');
-    
+
     // Get authenticated user
     const auth = await getAuthenticatedUser(request);
-    
+
     if (!auth || !auth.authenticated) {
       return NextResponse.json(
         { error: "Please login to continue" },
@@ -216,7 +216,7 @@ export async function PUT(request) {
     if (note !== undefined) {
       appointment.doctorNote = note;
     }
-    
+
     await appointment.save();
 
     return NextResponse.json({
@@ -252,7 +252,7 @@ function getInitials(name) {
 function getAvatarColor(name) {
   if (!name) return 'bg-gray-500';
   const colors = [
-    'bg-emerald-500', 'bg-amber-500', 'bg-red-500', 
+    'bg-emerald-500', 'bg-amber-500', 'bg-red-500',
     'bg-blue-500', 'bg-purple-500', 'bg-pink-500',
     'bg-indigo-500', 'bg-teal-500', 'bg-rose-500',
     'bg-orange-500', 'bg-cyan-500', 'bg-violet-500',

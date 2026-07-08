@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { 
   Bell, Search, Plus, MapPin, Video, Check, Clock, X, Calendar, Phone, 
-  Loader2, AlertCircle 
+  Loader2, AlertCircle, CheckCircle, XCircle 
 } from "lucide-react";
 import Link from "next/link";
 
@@ -78,12 +78,14 @@ export default function DoctorAppointments() {
       }
 
       if (result.success) {
+        // Update local state
         setAppointments(prev => prev.map(apt => 
           apt.id === id ? { ...apt, status: newStatus } : apt
         ));
         if (selectedApt && selectedApt.id === id) {
           setSelectedApt({ ...selectedApt, status: newStatus });
         }
+        // Refresh counts
         fetchAppointments();
       } else {
         throw new Error(result.error || 'Failed to update status');
@@ -148,7 +150,6 @@ export default function DoctorAppointments() {
           <h1 className="font-serif text-4xl font-bold text-gray-900 mb-1">Appointments</h1>
           <p className="text-gray-500">{counts.confirmed || 0} confirmed · {counts.pending || 0} pending confirmation</p>
         </div>
-        {/* Add Slot button removed */}
       </div>
 
       {/* Search & Filters */}
@@ -189,10 +190,10 @@ export default function DoctorAppointments() {
       <div className="flex bg-gray-50 p-2 rounded-2xl mb-6 w-full border border-gray-200 overflow-x-auto gap-2">
         {[
           { id: "all", label: "All", count: counts.all },
-          { id: "confirmed", label: "Confirmed", count: counts.confirmed },
           { id: "pending", label: "Pending", count: counts.pending },
-          { id: "cancelled", label: "Cancelled", count: counts.cancelled },
-          { id: "completed", label: "Completed", count: counts.completed }
+          { id: "confirmed", label: "Confirmed", count: counts.confirmed },
+          { id: "completed", label: "Completed", count: counts.completed },
+          { id: "cancelled", label: "Cancelled", count: counts.cancelled }
         ].map((tab) => (
           <button
             key={tab.id}
@@ -257,28 +258,43 @@ export default function DoctorAppointments() {
                   </div>
                 </div>
                 
-                <div className="md:absolute top-5 right-5 flex items-center justify-end self-end md:self-auto">
-                  {apt.status === "confirmed" ? (
-                    <span className="flex items-center gap-1 text-emerald-600 font-semibold text-xs bg-emerald-50 px-3 py-1 rounded-full">
-                      Confirmed
-                    </span>
-                  ) : apt.status === "pending" ? (
-                    <span className="flex items-center gap-1 text-amber-500 font-semibold text-xs bg-amber-50 px-3 py-1 rounded-full">
-                      Pending
-                    </span>
-                  ) : apt.status === "cancelled" ? (
-                    <span className="flex items-center gap-1 text-red-500 font-semibold text-xs bg-red-50 px-3 py-1 rounded-full">
-                      Cancelled
-                    </span>
-                  ) : apt.status === "completed" ? (
-                    <span className="flex items-center gap-1 text-blue-500 font-semibold text-xs bg-blue-50 px-3 py-1 rounded-full">
-                      Completed
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-gray-500 font-semibold text-xs bg-gray-50 px-3 py-1 rounded-full">
-                      {apt.status}
-                    </span>
+                <div className="flex items-center gap-3 self-end md:self-auto">
+                  {apt.status === "pending" && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        updateStatus(apt.id, "confirmed");
+                      }}
+                      disabled={updating}
+                      className="flex items-center gap-1 bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                    >
+                      <CheckCircle size={14} />
+                      Confirm
+                    </button>
                   )}
+                  <div className="md:absolute top-5 right-5 flex items-center justify-end">
+                    {apt.status === "confirmed" ? (
+                      <span className="flex items-center gap-1 text-emerald-600 font-semibold text-xs bg-emerald-50 px-3 py-1 rounded-full">
+                        Confirmed
+                      </span>
+                    ) : apt.status === "pending" ? (
+                      <span className="flex items-center gap-1 text-amber-500 font-semibold text-xs bg-amber-50 px-3 py-1 rounded-full">
+                        Pending
+                      </span>
+                    ) : apt.status === "cancelled" ? (
+                      <span className="flex items-center gap-1 text-red-500 font-semibold text-xs bg-red-50 px-3 py-1 rounded-full">
+                        Cancelled
+                      </span>
+                    ) : apt.status === "completed" ? (
+                      <span className="flex items-center gap-1 text-blue-500 font-semibold text-xs bg-blue-50 px-3 py-1 rounded-full">
+                        Completed
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-gray-500 font-semibold text-xs bg-gray-50 px-3 py-1 rounded-full">
+                        {apt.status}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))
@@ -316,6 +332,32 @@ export default function DoctorAppointments() {
                   {selectedApt.status === "completed" && <span className="text-blue-500 font-semibold text-xs bg-blue-50 px-2 py-1 rounded-md">Completed</span>}
                 </div>
               </div>
+
+              {/* Action Buttons for Pending */}
+              {selectedApt.status === "pending" && (
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => updateStatus(selectedApt.id, "confirmed")}
+                    disabled={updating}
+                    className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+                  >
+                    <CheckCircle size={18} />
+                    Confirm Appointment
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (confirm('Are you sure you want to cancel this appointment?')) {
+                        updateStatus(selectedApt.id, "cancelled");
+                      }
+                    }}
+                    disabled={updating}
+                    className="flex-1 bg-red-500 hover:bg-red-600 text-white py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+                  >
+                    <XCircle size={18} />
+                    Cancel
+                  </button>
+                </div>
+              )}
 
               {/* Info Grid */}
               <div className="grid grid-cols-[100px_1fr] gap-y-4 text-sm">
@@ -359,7 +401,7 @@ export default function DoctorAppointments() {
 
               {/* Actions */}
               <div className="flex flex-col gap-3 mt-2">
-                {selectedApt.status !== "completed" && selectedApt.status !== "cancelled" && (
+                {selectedApt.status === "confirmed" && (
                   <button 
                     onClick={() => updateStatus(selectedApt.id, "completed")}
                     disabled={updating}
@@ -388,7 +430,7 @@ export default function DoctorAppointments() {
                   </a>
                 </div>
 
-                {selectedApt.status !== "cancelled" && selectedApt.status !== "completed" && (
+                {selectedApt.status !== "cancelled" && selectedApt.status !== "completed" && selectedApt.status !== "pending" && (
                   <button 
                     onClick={() => {
                       if (confirm('Are you sure you want to cancel this appointment?')) {

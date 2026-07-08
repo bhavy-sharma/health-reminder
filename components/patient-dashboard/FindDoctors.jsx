@@ -23,6 +23,8 @@ import {
   X,
   Loader2,
   AlertCircle,
+  Navigation,
+  AlertTriangle,
 } from 'lucide-react';
 import Sidebar from '@/components/patient-dashboard/Sidebar';
 import Link from 'next/link';
@@ -45,18 +47,10 @@ const specialties = [
 
 const getColorClass = (hex) => {
   const colorMap = {
-    '#EF4444': 'bg-red-500',
-    '#F59E0B': 'bg-amber-500',
-    '#10B981': 'bg-emerald-500',
-    '#3B82F6': 'bg-blue-500',
-    '#8B5CF6': 'bg-purple-500',
-    '#EC4899': 'bg-pink-500',
-    '#14B8A6': 'bg-teal-500',
-    '#F97316': 'bg-orange-500',
-    '#6366F1': 'bg-indigo-500',
-    '#84CC16': 'bg-lime-500',
-    '#06B6D4': 'bg-cyan-500',
-    '#D946EF': 'bg-fuchsia-500',
+    '#EF4444': 'bg-red-500', '#F59E0B': 'bg-amber-500', '#10B981': 'bg-emerald-500',
+    '#3B82F6': 'bg-blue-500', '#8B5CF6': 'bg-purple-500', '#EC4899': 'bg-pink-500',
+    '#14B8A6': 'bg-teal-500', '#F97316': 'bg-orange-500', '#6366F1': 'bg-indigo-500',
+    '#84CC16': 'bg-lime-500', '#06B6D4': 'bg-cyan-500', '#D946EF': 'bg-fuchsia-500',
     '#6B7280': 'bg-gray-500',
   };
   return colorMap[hex] || 'bg-gray-500';
@@ -69,10 +63,10 @@ function StarRating({ rating }) {
         <Star
           key={s}
           className={`w-3.5 h-3.5 ${s <= Math.floor(rating)
-              ? 'text-amber-400 fill-amber-400'
-              : s - 0.5 <= rating
-                ? 'text-amber-400 fill-amber-200'
-                : 'text-gray-200 fill-gray-200'
+            ? 'text-amber-400 fill-amber-400'
+            : s - 0.5 <= rating
+              ? 'text-amber-400 fill-amber-200'
+              : 'text-gray-200 fill-gray-200'
             }`}
         />
       ))}
@@ -92,6 +86,34 @@ export default function FindDoctorsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [sortBy, setSortBy] = useState('rating');
+  const [hasAddress, setHasAddress] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+
+  // Check if user has address
+  useEffect(() => {
+    checkUserAddress();
+  }, []);
+
+  const checkUserAddress = async () => {
+    try {
+      const response = await fetch('/api/user/profile');
+      if (response.ok) {
+        const data = await response.json();
+        const user = data.user;
+        if (user?.address?.city || user?.address?.state || user?.address?.district) {
+          setHasAddress(true);
+          setUserLocation({
+            city: user.address.city,
+            district: user.address.district,
+            state: user.address.state,
+            pincode: user.address.pincode,
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error checking address:', err);
+    }
+  };
 
   const fetchDoctors = useCallback(async () => {
     try {
@@ -105,6 +127,11 @@ export default function FindDoctorsPage() {
         page,
         limit: 10,
         sortBy,
+        ...(userLocation && {
+          city: userLocation.city,
+          district: userLocation.district,
+          state: userLocation.state,
+        }),
       });
 
       const response = await fetch(`/api/patients/doctors?${params}`);
@@ -127,24 +154,28 @@ export default function FindDoctorsPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, activeSpecialty, activeQuickFilter, page, sortBy]);
+  }, [search, activeSpecialty, activeQuickFilter, page, sortBy, userLocation]);
 
   useEffect(() => {
-    fetchDoctors();
-  }, [fetchDoctors]);
+    if (hasAddress) {
+      fetchDoctors();
+    } else {
+      setLoading(false);
+    }
+  }, [fetchDoctors, hasAddress]);
 
   // Debounce search
   useEffect(() => {
     const timer = setTimeout(() => {
       if (page !== 1) {
         setPage(1);
-      } else {
+      } else if (hasAddress) {
         fetchDoctors();
       }
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [search, activeSpecialty, activeQuickFilter]);
+  }, [search, activeSpecialty, activeQuickFilter, hasAddress]);
 
   if (loading) {
     return (
@@ -162,22 +193,34 @@ export default function FindDoctorsPage() {
     );
   }
 
-  if (error) {
+  // Show address prompt if user hasn't added address
+  if (!hasAddress) {
     return (
       <div className="min-h-screen bg-[#FAF8F5]">
         <Sidebar />
         <main className="md:pl-[280px]">
-          <div className="flex items-center justify-center h-screen p-4">
-            <div className="text-center max-w-md">
-              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Doctors</h3>
-              <p className="text-sm text-gray-500 mb-4">{error}</p>
-              <button
-                onClick={fetchDoctors}
-                className="px-4 py-2 bg-[#0D1B2A] text-white rounded-lg hover:bg-[#1a2e44]"
-              >
-                Try Again
-              </button>
+          <div className="max-w-3xl mx-auto px-4 md:px-10 py-10 pt-16 md:pt-10">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
+              <Navigation className="w-16 h-16 text-blue-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-serif font-bold text-gray-900 mb-2">
+                Add Your Location
+              </h2>
+              <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                To find doctors near you, please add your address in your profile settings.
+                We'll match you with doctors in your city, district, or state.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Link
+                  href="/profile"
+                  className="inline-flex items-center gap-2 bg-[#0D1B2A] text-white px-6 py-3 rounded-xl font-medium hover:bg-[#1a2e44] transition-colors"
+                >
+                  <MapPin className="w-4 h-4" />
+                  Update Profile Address
+                </Link>
+                <p className="text-xs text-gray-400">
+                  We only use your address to find nearby doctors
+                </p>
+              </div>
             </div>
           </div>
         </main>
@@ -203,8 +246,14 @@ export default function FindDoctorsPage() {
                 Find the Right Doctor
               </h1>
               <p className="text-gray-500 text-sm mt-1">
-                Best doctors near you, matched to your health condition
+                Doctors near you based on your location
               </p>
+              {userLocation && (
+                <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  Showing doctors near {[userLocation.city, userLocation.district, userLocation.state].filter(Boolean).join(', ')}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-400 bg-white px-3 py-1.5 rounded-full border border-gray-100 shadow-sm">
@@ -233,8 +282,8 @@ export default function FindDoctorsPage() {
                 key={f}
                 onClick={() => setActiveQuickFilter(activeQuickFilter === f ? null : f)}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium border transition-all ${activeQuickFilter === f
-                    ? 'bg-[#0D1B2A] text-white border-[#0D1B2A] shadow-sm'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                  ? 'bg-[#0D1B2A] text-white border-[#0D1B2A] shadow-sm'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:shadow-sm'
                   }`}
               >
                 {f}
@@ -249,8 +298,8 @@ export default function FindDoctorsPage() {
                 key={label}
                 onClick={() => setActiveSpecialty(label)}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap border transition-all shrink-0 ${activeSpecialty === label
-                    ? 'bg-[#0D1B2A] text-white border-[#0D1B2A] shadow-sm'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:shadow-sm'
+                  ? 'bg-[#0D1B2A] text-white border-[#0D1B2A] shadow-sm'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:shadow-sm'
                   }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -273,6 +322,7 @@ export default function FindDoctorsPage() {
                 <option value="rating">Sort by Rating</option>
                 <option value="fee">Sort by Fee (Low to High)</option>
                 <option value="experience">Sort by Experience</option>
+                <option value="distance">Sort by Distance</option>
               </select>
               <button
                 onClick={() => setShowFilters(!showFilters)}
@@ -306,7 +356,7 @@ export default function FindDoctorsPage() {
           <div className="space-y-4">
             {doctors.length === 0 && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-7 py-12 text-center text-gray-400 text-sm">
-                No doctors match your search.
+                No doctors match your search in your area.
               </div>
             )}
 
@@ -349,6 +399,12 @@ export default function FindDoctorsPage() {
                         </div>
                         <p className="text-sm text-gray-500 mt-0.5">{doc.specialty}</p>
                         <p className="text-sm text-gray-400">{doc.hospital}</p>
+                        {doc.address && (
+                          <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            {[doc.address.city, doc.address.district, doc.address.state].filter(Boolean).join(', ')}
+                          </p>
+                        )}
                       </div>
                       <div className="text-right shrink-0">
                         <p className="text-lg font-bold text-gray-900">₹{doc.fee}</p>
@@ -378,12 +434,6 @@ export default function FindDoctorsPage() {
                     {doc.distance}
                   </div>
                   <span className="text-sm text-gray-500">{doc.experience}</span>
-                </div>
-
-                {/* Next slot */}
-                <div className="flex items-center gap-1.5 mt-2">
-                  <Clock className="w-3.5 h-3.5 text-emerald-500" />
-                  <span className="text-sm text-emerald-600 font-medium">{doc.nextSlot}</span>
                 </div>
 
                 {/* Condition tags */}
