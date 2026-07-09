@@ -14,9 +14,12 @@ import {
     X,
     Check,
     Clock as ClockIcon,
+    MessageCircle,
+    Phone,
 } from 'lucide-react';
 import Sidebar from '@/components/patient-dashboard/Sidebar';
 import Link from 'next/link';
+import toast, { Toaster } from 'react-hot-toast';
 
 function getColorClass(hex) {
     const colorMap = {
@@ -120,30 +123,9 @@ export default function PatientAppointments() {
         }
     };
 
-    const handleCancelAppointment = async (appointmentId) => {
-        if (!confirm('Are you sure you want to cancel this appointment?')) return;
-
-        try {
-            const response = await fetch('/api/patient/appointments/cancel', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ appointmentId }),
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || 'Failed to cancel appointment');
-            }
-
-            if (result.success) {
-                fetchAppointments();
-                setSelectedAppointment(null);
-            }
-        } catch (error) {
-            console.error('Error cancelling appointment:', error);
-            alert('Failed to cancel appointment: ' + error.message);
-        }
+    const getWhatsAppLink = (phone) => {
+        const number = phone?.replace(/[^0-9]/g, '') || '';
+        return `https://wa.me/91${number}`;
     };
 
     const statusTabs = [
@@ -195,6 +177,7 @@ export default function PatientAppointments() {
 
     return (
         <div className="min-h-screen bg-[#FAF8F5]">
+            <Toaster position="top-right" />
             <Sidebar />
 
             <main className="md:pl-[280px]">
@@ -292,13 +275,18 @@ export default function PatientAppointments() {
                                                 <Clock className="w-4 h-4" />
                                                 {apt.time}
                                             </div>
-                                            <div className="flex items-center gap-1.5 text-sm text-gray-500">
-                                                {apt.type === 'in-person' ? (
-                                                    <MapPin className="w-4 h-4" />
+                                            {/* ─── Appointment Type Badge ─── */}
+                                            <div className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${
+                                                apt.isVideo 
+                                                    ? 'bg-blue-50 text-blue-700 border border-blue-100' 
+                                                    : 'bg-gray-50 text-gray-700 border border-gray-200'
+                                            }`}>
+                                                {apt.isVideo ? (
+                                                    <Video className="w-3 h-3" />
                                                 ) : (
-                                                    <Video className="w-4 h-4" />
+                                                    <MapPin className="w-3 h-3" />
                                                 )}
-                                                {apt.type === 'in-person' ? 'In-Person' : 'Video'}
+                                                {apt.isVideo ? 'Video' : 'In-Person'}
                                             </div>
                                             <StatusBadge status={apt.status} />
                                         </div>
@@ -310,6 +298,36 @@ export default function PatientAppointments() {
                                             <p className="text-sm text-gray-600">
                                                 <span className="font-medium">Condition:</span> {apt.condition}
                                             </p>
+                                        </div>
+                                    )}
+
+                                    {/* ─── Action Buttons ─── */}
+                                    {(apt.status === 'pending' || apt.status === 'confirmed') && (
+                                        <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-2">
+                                            {/* WhatsApp Button */}
+                                            {apt.doctorPhone && (
+                                                <a
+                                                    href={getWhatsAppLink(apt.doctorPhone)}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-[#25D366] text-white text-xs font-medium rounded-lg hover:bg-[#20bd5a] transition-colors"
+                                                >
+                                                    <MessageCircle className="w-3.5 h-3.5" />
+                                                    WhatsApp Doctor
+                                                </a>
+                                            )}
+                                            {/* Call Button */}
+                                            {apt.doctorPhone && (
+                                                <a
+                                                    href={`tel:+91${apt.doctorPhone.replace(/[^0-9]/g, '')}`}
+                                                    onClick={(e) => e.stopPropagation()}
+                                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 text-white text-xs font-medium rounded-lg hover:bg-gray-900 transition-colors"
+                                                >
+                                                    <Phone className="w-3.5 h-3.5" />
+                                                    Call Doctor
+                                                </a>
+                                            )}
                                         </div>
                                     )}
                                 </div>

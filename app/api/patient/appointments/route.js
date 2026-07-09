@@ -46,7 +46,6 @@ export async function GET(request) {
         }
 
         // Also include the user's own ID if they're a family member
-        // Build query - look for appointments where patientMemberId is in the family members list
         const query = { 
             patientMemberId: { $in: familyMemberIds.length > 0 ? familyMemberIds : [auth.userId] }
         };
@@ -60,7 +59,7 @@ export async function GET(request) {
         // Get appointments
         const appointments = await Appointment.find(query)
             .sort({ appointmentDate: -1 })
-            .populate('doctorId', 'name specialty hospital avatarColor')
+            .populate('doctorId', 'name specialty hospital avatarColor phone')
             .populate('patientMemberId', 'name relationship avatarColor')
             .lean();
 
@@ -73,12 +72,14 @@ export async function GET(request) {
             doctorSpecialty: apt.doctorId?.specialty || 'General',
             doctorInitials: getInitials(apt.doctorId?.name || 'Unknown Doctor'),
             doctorColor: apt.doctorId?.avatarColor || getAvatarColor(apt.doctorId?.name || 'Unknown Doctor'),
+            doctorPhone: apt.doctorId?.phone || '',
             patientName: apt.patientName || 'You',
             date: new Date(apt.appointmentDate).toLocaleDateString('en-US', { 
                 weekday: 'short', 
                 month: 'short', 
                 day: 'numeric' 
             }),
+            fullDate: apt.appointmentDate,
             time: apt.timeSlot,
             type: apt.type || 'in-person',
             status: apt.status || 'pending',
@@ -86,6 +87,8 @@ export async function GET(request) {
             fee: apt.fee || 0,
             doctorNote: apt.doctorNote || '',
             createdAt: apt.createdAt,
+            isVideo: apt.type === 'video',
+            isInPerson: apt.type === 'in-person' || !apt.type,
         }));
 
         // Get counts

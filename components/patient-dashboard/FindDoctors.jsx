@@ -25,6 +25,8 @@ import {
   AlertCircle,
   Navigation,
   AlertTriangle,
+  Crown,
+  Zap,
 } from 'lucide-react';
 import Sidebar from '@/components/patient-dashboard/Sidebar';
 import Link from 'next/link';
@@ -376,10 +378,20 @@ export default function FindDoctorsPage() {
 
                     {/* Info - Mobile */}
                     <div className="flex-1 min-w-0 md:hidden">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <h3 className="text-[16px] font-semibold text-gray-900">{doc.name}</h3>
                         {doc.verified && (
                           <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />
+                        )}
+                        {/* ─── Plan Badge (Mobile) ─── */}
+                        {doc.isPro && (
+                          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${
+                            doc.isPremium 
+                              ? 'bg-amber-400 text-white' 
+                              : 'bg-blue-500 text-white'
+                          }`}>
+                            {doc.isPremium ? 'Premium' : 'Pro'}
+                          </span>
                         )}
                       </div>
                       <p className="text-sm text-gray-500 mt-0.5">{doc.specialty}</p>
@@ -391,10 +403,20 @@ export default function FindDoctorsPage() {
                   <div className="flex-1 min-w-0 hidden md:block">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <h3 className="text-[16px] font-semibold text-gray-900">{doc.name}</h3>
                           {doc.verified && (
                             <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />
+                          )}
+                          {/* ─── Plan Badge ─── */}
+                          {doc.isPro && (
+                            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${
+                              doc.isPremium 
+                                ? 'bg-amber-400 text-white' 
+                                : 'bg-blue-500 text-white'
+                            }`}>
+                              {doc.isPremium ? 'Premium' : 'Pro'}
+                            </span>
                           )}
                         </div>
                         <p className="text-sm text-gray-500 mt-0.5">{doc.specialty}</p>

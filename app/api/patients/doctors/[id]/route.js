@@ -12,8 +12,6 @@ export async function GET(request) {
     // Extract ID from the URL path
     const url = new URL(request.url);
     const pathParts = url.pathname.split('/');
-    // The ID should be the last part of the path
-    // /api/patients/doctors/[id] -> id is at the end
     const id = pathParts[pathParts.length - 1];
     
     console.log('Extracted ID from URL path:', id);
@@ -28,6 +26,7 @@ export async function GET(request) {
 
     await connectToDatabase();
 
+    // ─── FIX: Explicitly select all fields including plan ───
     const doctor = await Doctor.findById(id)
       .select('-password')
       .lean();
@@ -54,10 +53,18 @@ export async function GET(request) {
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews 
       : 0;
 
+    // ─── Log the plan and video fee for debugging ───
+    console.log('Doctor plan:', doctor.plan);
+    console.log('Video consult fee:', doctor.videoConsultFee);
+
     return NextResponse.json({
       success: true,
       data: {
         ...doctor,
+        // Ensure plan and videoConsultFee are explicitly included
+        plan: doctor.plan || { type: 'free' },
+        videoConsultFee: doctor.videoConsultFee || 0,
+        consultationFee: doctor.consultationFee || 0,
         stats: {
           avgRating: Math.round(avgRating * 10) / 10 || 0,
           totalReviews,

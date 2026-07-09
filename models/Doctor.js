@@ -170,6 +170,7 @@ const DoctorSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // models/Doctor.js - already has these fields
     plan: {
       type: {
         type: String,
@@ -181,6 +182,9 @@ const DoctorSchema = new mongoose.Schema(
         enum: ["monthly", "annual"],
       },
       expiresAt: {
+        type: Date,
+      },
+      updatedAt: {
         type: Date,
       },
     },
@@ -201,7 +205,7 @@ DoctorSchema.index({ "address.state": 1 });
 DoctorSchema.index({ "address.district": 1 });
 
 // ── Virtual for full address ──────────────────────────────────
-DoctorSchema.virtual("fullAddress").get(function() {
+DoctorSchema.virtual("fullAddress").get(function () {
   const parts = [];
   if (this.address?.street) parts.push(this.address.street);
   if (this.address?.area) parts.push(this.address.area);
@@ -215,7 +219,7 @@ DoctorSchema.virtual("fullAddress").get(function() {
 });
 
 // ── Virtual for formatted location ────────────────────────────
-DoctorSchema.virtual("locationDisplay").get(function() {
+DoctorSchema.virtual("locationDisplay").get(function () {
   const parts = [];
   if (this.address?.city) parts.push(this.address.city);
   if (this.address?.state) parts.push(this.address.state);
@@ -223,7 +227,7 @@ DoctorSchema.virtual("locationDisplay").get(function() {
 });
 
 // ── Method to get address as object ────────────────────────────
-DoctorSchema.methods.getAddress = function() {
+DoctorSchema.methods.getAddress = function () {
   return {
     street: this.address?.street || "",
     area: this.address?.area || "",

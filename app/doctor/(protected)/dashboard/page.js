@@ -5,12 +5,21 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { 
   Bell, CheckCircle2, Zap, Calendar, Star, Eye, IndianRupee, 
-  ChevronRight, Check, User, Loader2, AlertCircle 
+  ChevronRight, Check, User, Loader2, AlertCircle, Shield, XCircle 
 } from "lucide-react";
 
 export default function DoctorDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [planStatus, setPlanStatus] = useState({
+    plan: 'free',
+    used: 0,
+    limit: 10,
+    remaining: 10,
+    isUnlimited: false,
+    hasReachedLimit: false,
+    percentageUsed: 0
+  });
   const [data, setData] = useState({
     doctor: {},
     stats: {},
@@ -21,6 +30,7 @@ export default function DoctorDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
+    fetchPlanStatus();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -43,6 +53,18 @@ export default function DoctorDashboard() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPlanStatus = async () => {
+    try {
+      const response = await fetch('/api/doctor/plans/status');
+      const result = await response.json();
+      if (result.success) {
+        setPlanStatus(result.data);
+      }
+    } catch (error) {
+      console.error('Error fetching plan status:', error);
     }
   };
 
@@ -124,38 +146,89 @@ export default function DoctorDashboard() {
             })} · {doctor?.city || 'Your City'}
           </p>
         </div>
-        {doctor?.isVerified && (
-          <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-emerald-200 mt-2 sm:mt-0">
-            <CheckCircle2 size={16} />
-            Verified
+        <div className="flex items-center gap-3 mt-2 sm:mt-0">
+          {doctor?.isVerified && (
+            <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-emerald-200">
+              <CheckCircle2 size={16} />
+              Verified
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 bg-gray-100 text-gray-700 px-3 py-1.5 rounded-full text-sm font-semibold border border-gray-200">
+            <Shield size={14} />
+            {planStatus.plan.charAt(0).toUpperCase() + planStatus.plan.slice(1)} Plan
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Upgrade Banner */}
-      {doctor?.plan === 'free' && (
-        <div className="bg-gray-900 rounded-2xl p-5 flex flex-col md:flex-row items-center justify-between gap-4 mb-8 text-white shadow-lg border border-gray-700">
-          <div className="flex items-center gap-4 w-full md:w-auto">
-            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-amber-400">
-              <Zap size={24} fill="currentColor" />
+      {/* Plan Limit Warning */}
+      {planStatus.hasReachedLimit && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+              <XCircle className="w-5 h-5 text-amber-600" />
             </div>
             <div>
-              <h3 className="font-bold text-lg mb-1">You're on the Free Plan</h3>
-              <p className="text-white/70 text-sm">
-                {stats?.upcomingAppointments || 0} / 10 bookings used this month. 
-                Upgrade for unlimited bookings + priority listing.
+              <p className="font-semibold text-amber-800">Booking limit reached</p>
+              <p className="text-sm text-amber-700">
+                You've used {planStatus.used} of {planStatus.limit} bookings this month. 
+                Upgrade to continue accepting patients.
               </p>
             </div>
           </div>
           <Link 
             href="/doctor/plans" 
-            className="bg-amber-500 text-gray-900 px-5 py-2.5 rounded-lg font-bold text-sm hover:bg-amber-400 transition-opacity shrink-0 flex items-center gap-2 w-full md:w-auto justify-center"
+            className="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-semibold transition-colors shrink-0 w-full sm:w-auto text-center"
           >
-            Upgrade to Pro
-            <ChevronRight size={16} />
+            Upgrade Now →
           </Link>
         </div>
       )}
+
+      {/* Plan Usage Card */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4 mb-8 shadow-sm">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex-1 w-full">
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <p className="text-sm font-medium text-gray-600">
+                  {planStatus.plan.charAt(0).toUpperCase() + planStatus.plan.slice(1)} Plan Usage
+                </p>
+                <p className="text-xs text-gray-400">
+                  {planStatus.isUnlimited ? 'Unlimited bookings' : `${planStatus.used} of ${planStatus.limit} bookings used this month`}
+                </p>
+              </div>
+              <span className="text-sm font-bold text-gray-900">
+                {planStatus.isUnlimited ? '∞' : `${Math.round(planStatus.percentageUsed)}%`}
+              </span>
+            </div>
+            {!planStatus.isUnlimited && (
+              <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    planStatus.hasReachedLimit ? 'bg-red-500' : 
+                    planStatus.percentageUsed > 80 ? 'bg-amber-500' : 
+                    'bg-emerald-500'
+                  }`}
+                  style={{ width: `${Math.min(planStatus.percentageUsed, 100)}%` }}
+                />
+              </div>
+            )}
+          </div>
+          {!planStatus.isUnlimited && planStatus.plan !== 'premium' && (
+            <Link 
+              href="/doctor/plans"
+              className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shrink-0 w-full sm:w-auto text-center"
+            >
+              {planStatus.hasReachedLimit ? 'Upgrade to Continue' : 'Upgrade Plan'}
+            </Link>
+          )}
+          {planStatus.isUnlimited && (
+            <div className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg text-sm font-medium border border-emerald-200 w-full sm:w-auto text-center">
+              Unlimited ✓
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -195,20 +268,7 @@ export default function DoctorDashboard() {
           <p className="text-gray-400 text-xs">{stats?.totalReviews || 0} total reviews</p>
         </Link>
 
-        <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-emerald-500">
-              <Eye size={20} />
-            </div>
-            <span className="flex items-center gap-1 text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="m18 15-6-6-6 6"/></svg>
-              +18%
-            </span>
-          </div>
-          <div className="font-serif text-3xl font-bold text-gray-900 mb-1">{stats?.profileViews || 0}</div>
-          <p className="text-gray-600 font-medium text-sm mb-1">Profile Views</p>
-          <p className="text-gray-400 text-xs">This month</p>
-        </div>
+        
 
         <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-4">
@@ -366,7 +426,7 @@ export default function DoctorDashboard() {
             <p className="text-xs text-gray-400">Manage schedule</p>
           </Link>
           <Link href="/doctor/plans" className="bg-white rounded-xl p-4 border border-gray-200 hover:border-gray-300 transition-colors group">
-            <div className="text-red-500 mb-2"><Zap size={24} fill="currentColor" /></div>
+            <div className="text-amber-500 mb-2"><Zap size={24} fill="currentColor" /></div>
             <h4 className="font-bold text-gray-900 text-sm">Plans</h4>
             <p className="text-xs text-gray-400">Upgrade for more</p>
           </Link>

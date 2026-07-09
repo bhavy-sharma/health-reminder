@@ -6,6 +6,42 @@ import Appointment from "@/models/Appointment";
 import Doctor from "@/models/Doctor";
 import FamilyMember from "@/models/FamilyMember";
 import User from "@/models/User";
+import { checkPlanLimit } from "@/lib/plan-utils";
+
+// ─── WhatsApp Integration ──────────────────────────────────
+const twilioSid = process.env.TWILIO_ACCOUNT_SID;
+const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+const twilioFrom = process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886';
+
+async function sendWhatsAppMessage(to, body) {
+  console.log(`[TWILIO] To: ${to} | Body: ${body.substring(0, 60)}...`);
+  
+  if (!twilioSid || !twilioAuthToken) {
+    console.log('[TWILIO] Mock mode - no credentials found');
+    return { sid: 'mock_' + Math.random().toString(36).substr(2, 9) };
+  }
+
+  try {
+    const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${twilioSid}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Basic ' + Buffer.from(`${twilioSid}:${twilioAuthToken}`).toString('base64'),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        From: twilioFrom,
+        To: `whatsapp:${to}`,
+        Body: body
+      })
+    });
+    const data = await response.json();
+    console.log('[TWILIO] Response:', data);
+    return data;
+  } catch (error) {
+    console.error('[TWILIO ERROR]', error);
+    return { sid: 'error_' + Math.random().toString(36).substr(2, 9) };
+  }
+}
 
 // Helper function to clean phone number
 function cleanPhoneNumber(phone) {
@@ -69,14 +105,12 @@ async function getBookedSlots(doctorId, date) {
 async function findNextAvailableSlot(doctorId, date, doctorSlots) {
     const bookedSlots = await getBookedSlots(doctorId, date);
     
-    // Check current date
     for (const slot of doctorSlots) {
         if (!bookedSlots.includes(slot)) {
             return { timeSlot: slot, date: date, label: 'Today' };
         }
     }
     
-    // Check tomorrow
     const tomorrow = new Date(date);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowBooked = await getBookedSlots(doctorId, tomorrow);
@@ -86,7 +120,6 @@ async function findNextAvailableSlot(doctorId, date, doctorSlots) {
         }
     }
     
-    // Check day after tomorrow
     const dayAfter = new Date(date);
     dayAfter.setDate(dayAfter.getDate() + 2);
     const dayAfterBooked = await getBookedSlots(doctorId, dayAfter);
@@ -177,12 +210,34 @@ export async function POST(request) {
             );
         }
 
-        // ─── NEW: Check if doctor has this time slot in their schedule ───
+        // ─── CHECK PLAN LIMITS ───
+        const planCheck = await checkPlanLimit(doctorId);
+        
+        if (!planCheck.allowed) {
+            const upgradeMessage = planCheck.plan === 'free' 
+                ? `You've reached the ${planCheck.limit} booking limit for the Free plan. Upgrade to Pro or Premium for unlimited bookings.`
+                : `You've reached your booking limit of ${planCheck.limit} for the ${planCheck.plan} plan. Please contact support.`;
+            
+            return NextResponse.json({
+                success: false,
+                error: "Booking limit reached",
+                code: "PLAN_LIMIT_REACHED",
+                message: upgradeMessage,
+                planCheck: {
+                    used: planCheck.used,
+                    limit: planCheck.limit,
+                    remaining: planCheck.remaining,
+                    plan: planCheck.plan,
+                    isUnlimited: planCheck.isUnlimited
+                }
+            }, { status: 403 });
+        }
+
+        // ─── Check if doctor has this time slot in their schedule ───
         const doctorSlots = doctor.appointmentSlots || [];
         const isInSchedule = doctorSlots.includes(timeSlot);
         
-        if (!isInSchedule) {
-            // Find the next available slot
+        if (!isInSchedule && doctorSlots.length > 0) {
             const nextSlot = await findNextAvailableSlot(
                 doctorId, 
                 appointmentDate || new Date(), 
@@ -213,15 +268,16 @@ export async function POST(request) {
         }
 
         // ─── Check if slot is already booked ───
+        const appointmentDateTime = getAppointmentDateTime(appointmentDate || new Date(), timeSlot);
+        
         const existing = await Appointment.findOne({
             doctorId,
-            appointmentDate: getAppointmentDateTime(appointmentDate || new Date(), timeSlot),
+            appointmentDate: appointmentDateTime,
             timeSlot,
             status: { $in: ['pending', 'confirmed'] }
         });
 
         if (existing) {
-            // Find the next available slot
             const nextSlot = await findNextAvailableSlot(
                 doctorId, 
                 appointmentDate || new Date(), 
@@ -252,7 +308,6 @@ export async function POST(request) {
         }
 
         // ─── Check if appointment is in the past ───
-        const appointmentDateTime = getAppointmentDateTime(appointmentDate || new Date(), timeSlot);
         const now = new Date();
         if (appointmentDateTime < now) {
             return NextResponse.json({
@@ -321,6 +376,76 @@ export async function POST(request) {
         const appointment = new Appointment(appointmentData);
         await appointment.save();
 
+        // ─── SEND WHATSAPP APPOINTMENT REMINDER (Only for Pro/Premium doctors) ───
+        const doctorPlan = doctor.plan?.type || 'free';
+        const isProOrPremium = doctorPlan === 'pro' || doctorPlan === 'premium';
+
+        if (isProOrPremium && cleanedPhone) {
+            try {
+                const formattedDate = new Date(appointmentDateTime).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+                const formattedTime = timeSlot;
+
+                const doctorPhone = doctor.phone || '';
+                const doctorName = doctor.name || 'Doctor';
+
+                // ── WhatsApp message to PATIENT ──
+                const patientMessage = `🏥 *Appointment Confirmation*\n\n` +
+                    `Dear ${patientMember.name},\n\n` +
+                    `Your appointment with *Dr. ${doctorName}* has been booked successfully.\n\n` +
+                    `📅 Date: ${formattedDate}\n` +
+                    `🕐 Time: ${formattedTime}\n` +
+                    `📍 Type: ${type === 'video' ? '🎥 Video Consultation' : '🏢 In-Person Visit'}\n` +
+                    `💊 Reason: ${condition || 'General Checkup'}\n\n` +
+                    `Please arrive 10 minutes early.\n\n` +
+                    `Thank you for choosing Family Health! ❤️`;
+
+                await sendWhatsAppMessage(`91${cleanedPhone}`, patientMessage);
+                console.log(`✅ WhatsApp notification sent to patient: ${cleanedPhone}`);
+
+                // ── WhatsApp message to DOCTOR (only if doctor has phone) ──
+                if (doctorPhone) {
+                    const cleanedDoctorPhone = cleanPhoneNumber(doctorPhone);
+                    if (cleanedDoctorPhone && cleanedDoctorPhone.length === 10) {
+                        const doctorMessage = `📋 *New Appointment Booked*\n\n` +
+                            `Dr. ${doctorName},\n\n` +
+                            `A new appointment has been booked with you.\n\n` +
+                            `👤 Patient: ${patientMember.name}\n` +
+                            `📅 Date: ${formattedDate}\n` +
+                            `🕐 Time: ${formattedTime}\n` +
+                            `📍 Type: ${type === 'video' ? '🎥 Video' : '🏢 In-Person'}\n` +
+                            `💊 Reason: ${condition || 'General Checkup'}\n` +
+                            `📞 Phone: +91${cleanedPhone}\n\n` +
+                            `Please confirm the appointment at your earliest convenience.`;
+
+                        await sendWhatsAppMessage(`91${cleanedDoctorPhone}`, doctorMessage);
+                        console.log(`✅ WhatsApp notification sent to doctor: ${cleanedDoctorPhone}`);
+                    }
+                }
+
+                // ── Send reminder to patient if video appointment ──
+                if (type === 'video') {
+                    const videoMessage = `🎥 *Video Consultation Reminder*\n\n` +
+                        `Hi ${patientMember.name},\n\n` +
+                        `Your video consultation with Dr. ${doctorName} is scheduled for ${formattedDate} at ${formattedTime}.\n\n` +
+                        `Please ensure you have a stable internet connection and join the call on time.\n\n` +
+                        `A link will be shared closer to the appointment time.`;
+
+                    await sendWhatsAppMessage(`91${cleanedPhone}`, videoMessage);
+                }
+
+            } catch (whatsappError) {
+                console.error('❌ WhatsApp notification failed:', whatsappError);
+                // Don't fail the booking if WhatsApp fails
+            }
+        } else {
+            console.log(`ℹ️ WhatsApp notifications skipped - Doctor plan: ${doctorPlan}`);
+        }
+
         return NextResponse.json({
             success: true,
             message: "Appointment booked successfully",
@@ -331,6 +456,7 @@ export async function POST(request) {
                 appointmentDate: appointment.appointmentDate,
                 timeSlot: appointment.timeSlot,
                 status: appointment.status,
+                whatsappSent: isProOrPremium,
             },
         });
 

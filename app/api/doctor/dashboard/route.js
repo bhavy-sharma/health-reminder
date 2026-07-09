@@ -6,6 +6,7 @@ import Doctor from "@/models/Doctor";
 import Appointment from "@/models/Appointment";
 import Review from "@/models/Review";
 import User from "@/models/User";
+import FamilyMember from "@/models/FamilyMember";
 
 export async function GET(request) {
   try {

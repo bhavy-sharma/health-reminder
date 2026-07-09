@@ -84,25 +84,43 @@ export async function GET(request) {
     // Get total count
     const total = await Doctor.countDocuments(query);
 
-    // Build sort options
+    // ─── Build sort options with plan priority ───
     let sortOption = {};
+    
+    // Always sort by plan priority first: Premium → Pro → Free
+    sortOption['plan.type'] = 1;
+
+    // Then apply additional sorting based on sortBy parameter
     switch (sortBy) {
       case 'rating':
-        sortOption = { rating: -1 };
+        sortOption = { 
+          'plan.type': 1, 
+          rating: -1 
+        };
         break;
       case 'fee':
-        sortOption = { consultationFee: 1 };
+        sortOption = { 
+          'plan.type': 1, 
+          consultationFee: 1 
+        };
         break;
       case 'experience':
-        sortOption = { experience: -1 };
+        sortOption = { 
+          'plan.type': 1, 
+          experience: -1 
+        };
         break;
       case 'distance':
-        // Sort by distance would require geolocation calculation
-        // For now, we'll just sort by rating
-        sortOption = { rating: -1 };
+        sortOption = { 
+          'plan.type': 1, 
+          rating: -1 
+        };
         break;
       default:
-        sortOption = { rating: -1 };
+        sortOption = { 
+          'plan.type': 1, 
+          rating: -1 
+        };
     }
 
     // Get doctors with pagination
@@ -129,7 +147,6 @@ export async function GET(request) {
         // Calculate distance based on address similarity
         let distance = 'Unknown';
         if (city && doctor.address?.city) {
-          // Simple city match - in production use geolocation
           if (doctor.address.city.toLowerCase() === city.toLowerCase()) {
             distance = 'Nearby';
           } else if (doctor.address.district?.toLowerCase() === district?.toLowerCase()) {
@@ -140,6 +157,19 @@ export async function GET(request) {
             distance = 'Other location';
           }
         }
+
+        // ─── Check doctor's plan ───
+        const plan = doctor.plan?.type || 'free';
+        const isPro = plan === 'pro' || plan === 'premium';
+        const isPremium = plan === 'premium';
+        const planLabel = plan === 'free' ? 'Free' : plan === 'pro' ? 'Pro' : 'Premium';
+        const planPriority = plan === 'premium' ? 1 : plan === 'pro' ? 2 : 3;
+        
+        // ─── Check if video is available ───
+        const hasVideo = isPro && 
+            doctor.videoConsultFee !== undefined && 
+            doctor.videoConsultFee !== null && 
+            doctor.videoConsultFee > 0;
 
         return {
           id: doctor._id,
@@ -154,8 +184,16 @@ export async function GET(request) {
           experience: `${doctor.experience || 0} yrs exp`,
           tags: doctor.conditions?.slice(0, 4) || [],
           languages: doctor.languages || ['English'],
-          fee: doctor.consultationFee || 0,
+          consultationFee: doctor.consultationFee || 0,
+          videoConsultFee: doctor.videoConsultFee || 0,
           verified: doctor.isVerified || false,
+          plan: plan,
+          isPro: isPro,
+          isPremium: isPremium,
+          planLabel: planLabel,
+          planPriority: planPriority,
+          hasBadge: isPro,
+          hasVideo: hasVideo,
           city: doctor.city,
           address: doctor.address,
           about: doctor.about,
@@ -163,6 +201,9 @@ export async function GET(request) {
         };
       })
     );
+
+    // ─── Sort doctors by plan priority (Premium first, then Pro, then Free) ───
+    doctorsWithStats.sort((a, b) => a.planPriority - b.planPriority);
 
     const totalPages = Math.ceil(total / limit);
 
