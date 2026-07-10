@@ -98,8 +98,7 @@ export default function Dashboard() {
   const quickActions = [
     { icon: Upload, label: 'Upload Report', desc: 'Add files & lab reports', href: '/health-records', color: 'blue' },
     { icon: Bell, label: 'Set Reminders', desc: 'WhatsApp & SMS triggers', href: '/medicine-tracker', color: 'indigo' },
-    { icon: Stethoscope, label: 'Doctor Visit Prep', desc: 'Export condition sheets', href: '/doctor-visit', color: 'emerald' },
-    { icon: AlertCircle, label: 'Emergency Info', desc: 'Emergency dial setups', href: '/settings', color: 'rose' }
+    { icon: Stethoscope, label: 'Doctor Visit Prep', desc: 'Export condition sheets', href: '/doctor-visit', color: 'emerald' }
   ];
 
   return (
@@ -120,20 +119,7 @@ export default function Dashboard() {
               <p className="text-sm text-[#475569] mt-1 font-medium">{todayFormatted}</p>
             </div>
             
-            <div className="flex items-center gap-3">
-              <div className="hidden sm:block relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search records, members..."
-                  className="pl-9 pr-4 py-2 border border-[#E2E8F0] rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white w-48 lg:w-64 shadow-sm font-semibold"
-                />
-              </div>
-              <button className="p-2.5 rounded-xl bg-white border border-[#E2E8F0] shadow-sm hover:bg-slate-50 transition cursor-pointer relative">
-                <Bell className="w-5 h-5 text-[#475569]" />
-                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
-              </button>
-            </div>
+
           </div>
 
           {/* Main Grid */}
@@ -213,12 +199,7 @@ export default function Dashboard() {
                         <p className="text-xs text-[#475569] mt-0.5">You have active profiles configured on this account.</p>
                       </div>
                     </div>
-                    <Link 
-                      href="/family-members"
-                      className="px-4 py-2 bg-[#0B1F4D] hover:bg-[#071433] text-white text-xs font-bold rounded-xl shadow transition"
-                    >
-                      Configure Cards
-                    </Link>
+
                   </div>
                 )}
               </div>

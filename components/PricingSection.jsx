@@ -24,7 +24,6 @@ export default function PricingSection() {
         "5 GB storage",
         "WhatsApp reminders",
         "Doctor PDF sharing",
-        "Emergency info",
         "Priority support",
       ],
       cta: "Start Family Plan",

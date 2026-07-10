@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText,
   Share2,
@@ -20,12 +20,11 @@ import {
 } from 'lucide-react';
 import Sidebar from './Sidebar';
 
-const familyMembers = [
-  { id: 1, name: 'Father',     initials: 'F',  color: '#EF4444',   bloodGroup: 'B+',  age: 62, allergies: 'Penicillin' },
-  { id: 2, name: 'Mother',     initials: 'M',  color: '#F59E0B',   bloodGroup: 'O+',  age: 58, allergies: 'None' },
-  { id: 3, name: 'Priya',      initials: 'P',  color: '#6B7280',   bloodGroup: 'A+',  age: 28, allergies: 'Dust' },
-  { id: 4, name: 'Rajesh (You)', initials: 'R', color: '#10B981', bloodGroup: 'AB+', age: 32, allergies: 'None' },
-];
+const calculateAge = (dob) => {
+  if (!dob) return 'N/A';
+  const diff = Date.now() - new Date(dob).getTime();
+  return Math.abs(new Date(diff).getUTCFullYear() - 1970);
+};
 
 const getColorClass = (hex) => {
   const colorMap = {
@@ -62,7 +61,10 @@ const includeItems = [
 ];
 
 export default function DoctorVisitPrepPage() {
-  const [selectedMember, setSelectedMember] = useState(familyMembers[0]);
+  const [familyMembers, setFamilyMembers] = useState([]);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [doctorName, setDoctorName] = useState('');
   const [specialty, setSpecialty] = useState('Cardiology');
   const [visitDate, setVisitDate] = useState('');
@@ -72,6 +74,36 @@ export default function DoctorVisitPrepPage() {
   const [checked, setChecked] = useState(
     Object.fromEntries(includeItems.map((i) => [i.id, i.defaultChecked]))
   );
+
+  useEffect(() => {
+    const fetchFamilyData = async () => {
+      try {
+        setLoading(true);
+        const profileRes = await fetch('/api/user/profile');
+        if (!profileRes.ok) throw new Error('Failed to fetch profile');
+        const profileData = await profileRes.json();
+        const familyId = profileData.user?.activeFamilyId?._id || profileData.user?.activeFamilyId;
+
+        if (familyId) {
+          const membersRes = await fetch(`/api/family/members?familyId=${familyId}`);
+          if (membersRes.ok) {
+            const membersData = await membersRes.json();
+            const members = membersData.members || [];
+            setFamilyMembers(members);
+            if (members.length > 0) {
+              setSelectedMember(members[0]);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching family data:', err);
+        setError('Failed to load family members');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchFamilyData();
+  }, []);
 
   const toggle = (id) => setChecked((prev) => ({ ...prev, [id]: !prev[id] }));
 
@@ -126,11 +158,17 @@ export default function DoctorVisitPrepPage() {
                   Select who's visiting the doctor
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {loading && <div className="col-span-full py-4 text-center text-sm text-gray-500">Loading family members...</div>}
+                  {error && <div className="col-span-full py-4 text-center text-sm text-red-500">{error}</div>}
+                  {!loading && !error && familyMembers.length === 0 && (
+                    <div className="col-span-full py-4 text-center text-sm text-gray-500">No family members found.</div>
+                  )}
                   {familyMembers.map((m) => {
-                    const active = selectedMember.id === m.id;
+                    const active = selectedMember?._id === m._id;
+                    const initials = m.name ? m.name.charAt(0).toUpperCase() : '?';
                     return (
                       <button
-                        key={m.id}
+                        key={m._id}
                         onClick={() => setSelectedMember(m)}
                         className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 py-5 transition-all ${
                           active
@@ -138,8 +176,8 @@ export default function DoctorVisitPrepPage() {
                             : 'border-gray-100 bg-white hover:border-gray-300 hover:shadow-sm'
                         }`}
                       >
-                        <div className={`w-14 h-14 rounded-full ${getColorClass(m.color)} flex items-center justify-center text-white text-xl font-bold shadow-sm`}>
-                          {m.initials}
+                        <div className={`w-14 h-14 rounded-full ${getColorClass(m.avatarColor || '#6B7280')} flex items-center justify-center text-white text-xl font-bold shadow-sm`}>
+                          {initials}
                         </div>
                         <span className="text-sm font-medium text-gray-800">{m.name}</span>
                         {active && (
@@ -219,37 +257,7 @@ export default function DoctorVisitPrepPage() {
                 </div>
               </section>
 
-              {/* Step 3: Include Items */}
-              <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                <h2 className="text-lg font-serif font-semibold text-gray-900 mb-5 flex items-center gap-2">
-                  <span className="bg-[#0D1B2A] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">3</span>
-                  Select what to include
-                </h2>
-                <ul className="space-y-1">
-                  {includeItems.map((item) => (
-                    <li key={item.id}>
-                      <button
-                        onClick={() => toggle(item.id)}
-                        className="w-full flex items-center gap-4 py-3 px-3 rounded-xl hover:bg-[#FAF8F5] transition-colors text-left border border-transparent hover:border-gray-100"
-                      >
-                        <span className={`w-5 h-5 rounded flex items-center justify-center border-2 shrink-0 transition-colors ${
-                          checked[item.id]
-                            ? 'bg-[#0D1B2A] border-[#0D1B2A]'
-                            : 'bg-white border-gray-300'
-                        }`}>
-                          {checked[item.id] && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
-                        </span>
-                        <span className="flex-1 text-sm font-medium text-gray-800">{item.label}</span>
-                        {item.recommended && (
-                          <span className="text-[10px] text-blue-600 bg-blue-50 border border-blue-100 rounded-full px-2.5 py-0.5 shrink-0 font-medium">
-                            Recommended
-                          </span>
-                        )}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
+
 
             </div>
 
@@ -264,46 +272,50 @@ export default function DoctorVisitPrepPage() {
                 </h3>
 
                 <div className="bg-[#FAF8F5] rounded-xl border border-gray-100 p-5">
-                  <div className="text-center mb-4">
-                    <div className={`w-16 h-16 rounded-full ${getColorClass(selectedMember.color)} flex items-center justify-center text-white text-2xl font-bold shadow-sm mx-auto mb-2`}>
-                      {selectedMember.initials}
+                  {!selectedMember ? (
+                    <div className="text-center py-8 text-gray-500 text-sm">
+                      Select a family member to view their health summary.
                     </div>
-                    <p className="text-lg font-serif font-bold text-gray-900">
-                      {selectedMember.name.replace(' (You)', '')}
-                    </p>
-                    <p className="text-xs text-gray-500 font-medium">
-                      {selectedMember.age} years • {selectedMember.bloodGroup}
-                    </p>
-                  </div>
-
-                  <div className="space-y-2 text-sm border-t border-gray-100 pt-3">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Blood Group:</span>
-                      <span className="font-semibold text-gray-900">{selectedMember.bloodGroup}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-gray-100 pb-2">
-                      <span className="text-gray-500">Age:</span>
-                      <span className="font-semibold text-gray-900">{selectedMember.age} years</span>
-                    </div>
-                    <div className="flex justify-between pt-1">
-                      <span className="text-gray-500">Allergies:</span>
-                      <span className={`font-semibold ${selectedMember.allergies !== 'None' ? 'text-red-600' : 'text-gray-900'}`}>
-                        {selectedMember.allergies}
-                      </span>
-                    </div>
-                    {doctorName && (
-                      <div className="flex justify-between border-t border-gray-100 pt-2 mt-1">
-                        <span className="text-gray-500">Doctor:</span>
-                        <span className="font-semibold text-gray-900 text-sm">{doctorName}</span>
+                  ) : (
+                    <>
+                      <div className="text-center mb-4">
+                        <div className={`w-16 h-16 rounded-full ${getColorClass(selectedMember.avatarColor || '#6B7280')} flex items-center justify-center text-white text-2xl font-bold shadow-sm mx-auto mb-2`}>
+                          {selectedMember.name ? selectedMember.name.charAt(0).toUpperCase() : '?'}
+                        </div>
+                        <p className="text-lg font-serif font-bold text-gray-900">
+                          {selectedMember.name.replace(' (You)', '')}
+                        </p>
+                        <p className="text-xs text-gray-500 font-medium">
+                          {calculateAge(selectedMember.dateOfBirth)} years • {selectedMember.bloodGroup || 'N/A'}
+                        </p>
                       </div>
-                    )}
-                  </div>
 
-                  <div className="mt-4 pt-3 border-t border-gray-100 text-center">
-                    <span className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
-                      {Object.values(checked).filter(Boolean).length} items selected
-                    </span>
-                  </div>
+                      <div className="space-y-2 text-sm border-t border-gray-100 pt-3">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Blood Group:</span>
+                          <span className="font-semibold text-gray-900">{selectedMember.bloodGroup || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-gray-100 pb-2">
+                          <span className="text-gray-500">Age:</span>
+                          <span className="font-semibold text-gray-900">{calculateAge(selectedMember.dateOfBirth)} years</span>
+                        </div>
+                        <div className="flex justify-between pt-1">
+                          <span className="text-gray-500">Allergies:</span>
+                          <span className={`font-semibold ${selectedMember.allergies && selectedMember.allergies.length > 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                            {selectedMember.allergies && selectedMember.allergies.length > 0 ? selectedMember.allergies.join(', ') : 'None'}
+                          </span>
+                        </div>
+                        {doctorName && (
+                          <div className="flex justify-between border-t border-gray-100 pt-2 mt-1">
+                            <span className="text-gray-500">Doctor:</span>
+                            <span className="font-semibold text-gray-900 text-sm">{doctorName}</span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+
                 </div>
               </div>
 

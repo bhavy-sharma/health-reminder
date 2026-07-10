@@ -494,10 +494,7 @@ export default function HealthRecordsPage() {
                                 className="w-full bg-white border border-[#E2E8F0] rounded-xl pl-11 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-[#111827]"
                             />
                         </div>
-                        <button className="flex items-center gap-2 bg-white border border-[#E2E8F0] rounded-xl px-4 py-3 text-sm font-bold text-[#475569] hover:bg-slate-50 shadow-sm transition cursor-pointer">
-                            <SlidersHorizontal className="w-4 h-4" />
-                            Filter
-                        </button>
+
                     </div>
 
                     {/* Categories Selector Tabs */}
@@ -519,26 +516,7 @@ export default function HealthRecordsPage() {
                     {/* Meta count bar & view selectors */}
                     <div className="flex items-center justify-between pb-2">
                         <p className="text-xs font-bold text-[#475569] uppercase tracking-wider">{filtered.length} records found</p>
-                        <div className="flex items-center bg-white border border-[#E2E8F0] rounded-xl overflow-hidden shadow-sm p-1">
-                            <button
-                                onClick={() => setView('list')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${view === 'list'
-                                        ? 'bg-[#0B1F4D] text-white'
-                                        : 'text-[#475569] hover:bg-slate-50'
-                                    }`}
-                            >
-                                <List className="w-3.5 h-3.5" /> List View
-                            </button>
-                            <button
-                                onClick={() => setView('timeline')}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${view === 'timeline'
-                                        ? 'bg-[#0B1F4D] text-white'
-                                        : 'text-[#475569] hover:bg-slate-50'
-                                    }`}
-                            >
-                                <Calendar className="w-3.5 h-3.5" /> Timeline
-                            </button>
-                        </div>
+
                     </div>
 
                     {/* Records List Container */}

@@ -349,9 +349,9 @@ export default function FindDoctorsPage() {
                 </p>
               </div>
             </div>
-            <button className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-6 py-2.5 rounded-xl transition-colors shrink-0 shadow-sm">
+            <Link href="/doctor" className="bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium px-6 py-2.5 rounded-xl transition-colors shrink-0 shadow-sm">
               Join Free →
-            </button>
+            </Link>
           </div>
 
           {/* Doctor cards */}

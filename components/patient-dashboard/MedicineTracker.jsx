@@ -417,12 +417,7 @@ export default function MedicineTracker() {
                 <Calendar className="w-4 h-4 text-blue-600" />
                 {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
               </div>
-              <button 
-                onClick={() => setActiveTab('history')}
-                className="px-4 py-2 bg-white hover:bg-slate-50 text-[#111827] text-xs font-bold rounded-xl border border-[#E2E8F0] shadow-sm transition flex items-center gap-2 cursor-pointer"
-              >
-                <Clock className="w-4 h-4 text-[#475569]" /> View Reminder History
-              </button>
+
               <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-[#E2E8F0] shadow-sm">
                 <button
                   onClick={() => setActiveTab('dashboard')}
@@ -686,36 +681,7 @@ export default function MedicineTracker() {
               {/* Right Column (SaaS Cards & Notification Board) */}
               <div className="space-y-6">
                 
-                {/* Twilio Status Card */}
-                <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-6 shadow-sm space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-bold text-sm text-[#111827]">Twilio Integration</h3>
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      apiConnected ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                    }`}>
-                      <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                      Connected
-                    </span>
-                  </div>
-                  <div className="space-y-2 pt-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-[#475569]">API Status:</span>
-                      <span className="font-bold text-emerald-600">Active</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[#475569]">Last Sync:</span>
-                      <span className="font-semibold text-[#111827]">Just Now</span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleSyncApi}
-                    disabled={isSyncing}
-                    className="w-full mt-2 py-2 border border-[#E2E8F0] hover:bg-slate-50 text-[#111827] text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-                    {isSyncing ? 'Syncing...' : 'Sync Connection'}
-                  </button>
-                </div>
+
 
                 {/* Upcoming Reminders Card */}
                 <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-6 shadow-sm space-y-4">
@@ -746,7 +712,7 @@ export default function MedicineTracker() {
                   <h3 className="font-bold text-sm flex items-center gap-2 text-blue-400">
                     <Bell className="w-4 h-4" /> Live Notifications
                   </h3>
-                  <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+                  <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                     {notifications.length === 0 ? (
                       <p className="text-xs text-slate-400 py-6 text-center">No alerts in this session yet.</p>
                     ) : (
