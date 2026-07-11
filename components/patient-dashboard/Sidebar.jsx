@@ -18,6 +18,7 @@ import {
     Home,
     Calendar,
     UserCircle,
+    HardDrive,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -32,9 +33,13 @@ const Sidebar = () => {
     const [familyData, setFamilyData] = useState({
         familyName: 'Family Group',
         members: [],
-        storageUsed: 0,
-        storageTotal: 5,
-        plan: 'Family Plan',
+    });
+    const [userStorage, setUserStorage] = useState({
+        used: 0,
+        limit: 1,
+        remaining: 1,
+        percentageUsed: 0,
+        plan: 'free',
     });
 
     const colorMap = [
@@ -57,12 +62,13 @@ const Sidebar = () => {
     ];
 
     useEffect(() => {
-        fetchFamilyData();
+        fetchData();
     }, []);
 
-    const fetchFamilyData = async () => {
+    const fetchData = async () => {
         try {
             setLoading(true);
+            
             const profileRes = await fetch('/api/user/profile');
             if (!profileRes.ok) throw new Error('Failed to fetch profile');
             const profileData = await profileRes.json();
@@ -75,9 +81,6 @@ const Sidebar = () => {
                     setFamilyData({
                         familyName: data.family?.familyName || 'Family Group',
                         members: data.members || [],
-                        storageUsed: data.family?.storageUsed || 0,
-                        storageTotal: data.family?.storageLimit || 5,
-                        plan: data.family?.plan || 'Family Plan',
                     });
                 } else {
                     const membersRes = await fetch(`/api/family/members?familyId=${familyId}`);
@@ -87,10 +90,33 @@ const Sidebar = () => {
                     }
                 }
             }
+
+            await fetchUserStorage();
+
         } catch (error) {
-            console.error('Error fetching family data:', error);
+            console.error('Error fetching data:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchUserStorage = async () => {
+        try {
+            const response = await fetch('/api/user/storage');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    setUserStorage({
+                        used: data.data.storageUsed || 0,
+                        limit: data.data.storageLimit || 1,
+                        remaining: data.data.remainingStorage || 1,
+                        percentageUsed: data.data.percentageUsed || 0,
+                        plan: data.data.plan || 'free',
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching storage:', error);
         }
     };
 
@@ -146,6 +172,22 @@ const Sidebar = () => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isMobile, isOpen]);
+
+    const getPlanDisplayName = (plan) => {
+        const planNames = {
+            free: 'Free Plan',
+            family: 'Family Plan',
+            premium: 'Premium Plan',
+        };
+        return planNames[plan] || 'Free Plan';
+    };
+
+    const getStorageBarColor = () => {
+        const percentage = userStorage.percentageUsed;
+        if (percentage > 90) return 'bg-red-500';
+        if (percentage > 70) return 'bg-amber-500';
+        return 'bg-gradient-to-r from-blue-400 to-blue-500';
+    };
 
     const sidebarContent = (
         <div className="flex flex-col h-full bg-gradient-to-b from-[#0B1F4D] to-[#040D21] text-white">
@@ -212,20 +254,43 @@ const Sidebar = () => {
 
             {/* Storage + Bottom Buttons */}
             <div className="p-5 border-t border-white/10 space-y-4 bg-black/20">
-                {/* Storage bar */}
+                {/* ─── User Storage Bar ─── */}
                 <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-xs font-bold text-blue-200">{familyData.plan}</h3>
-                        <span className="text-[10px] text-blue-300/80 font-semibold">
-                            {familyData.storageUsed} GB / {familyData.storageTotal} GB
+                    <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                            <HardDrive className="w-3.5 h-3.5 text-blue-400" />
+                            <h3 className="text-xs font-bold text-blue-200">
+                                {getPlanDisplayName(userStorage.plan)}
+                            </h3>
+                        </div>
+                        <span className={`text-[10px] font-semibold ${
+                            userStorage.percentageUsed > 90 ? 'text-red-400' :
+                            userStorage.percentageUsed > 70 ? 'text-amber-400' :
+                            'text-blue-300/80'
+                        }`}>
+                            {userStorage.used.toFixed(2)} GB / {userStorage.limit} GB
                         </span>
                     </div>
-                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div className="flex items-center justify-end">
+                        <span className={`text-[9px] font-bold ${
+                            userStorage.percentageUsed > 90 ? 'text-red-400' :
+                            userStorage.percentageUsed > 70 ? 'text-amber-400' :
+                            'text-blue-300/60'
+                        }`}>
+                            {userStorage.percentageUsed.toFixed(2)}% used
+                        </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mt-1">
                         <div
-                            className="h-full bg-gradient-to-r from-blue-400 to-blue-500 rounded-full transition-all duration-500"
-                            style={{ width: `${Math.min((familyData.storageUsed / familyData.storageTotal) * 100, 100)}%` }}
+                            className={`h-full rounded-full transition-all duration-500 ${getStorageBarColor()}`}
+                            style={{ width: `${Math.min(userStorage.percentageUsed, 100)}%` }}
                         />
                     </div>
+                    {userStorage.percentageUsed > 80 && (
+                        <p className="text-[9px] text-amber-400/80 mt-1.5 font-medium">
+                            ⚠️ {userStorage.remaining.toFixed(2)} GB remaining
+                        </p>
+                    )}
                 </div>
 
                 {/* Go to Homepage */}

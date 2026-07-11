@@ -1,3 +1,4 @@
+// app/api/health-records/upload/route.js
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import HealthRecord from "@/models/HealthRecord";
@@ -17,7 +18,7 @@ export async function POST(request) {
   try {
     await connectToDatabase();
 
-    // 1. Get authenticated user using the helper
+    // 1. Get authenticated user
     const auth = await getAuthenticatedUser(request);
     
     // 2. Check authentication
@@ -113,6 +114,34 @@ export async function POST(request) {
       );
     }
 
+    // ─── CHECK USER STORAGE LIMIT ───
+    const fileSizeInGB = file.size / (1024 * 1024 * 1024);
+    const remainingStorage = user.storageLimit - user.storageUsed;
+
+    console.log('Storage check:', {
+      plan: user.plan,
+      storageLimit: user.storageLimit,
+      storageUsed: user.storageUsed,
+      remaining: remainingStorage,
+      fileSizeGB: fileSizeInGB,
+    });
+
+    if (remainingStorage < fileSizeInGB) {
+      return NextResponse.json(
+        { 
+          error: "Storage limit exceeded", 
+          message: `You have used ${user.storageUsed.toFixed(2)} GB of ${user.storageLimit} GB. This file requires ${fileSizeInGB.toFixed(2)} GB of space. Please upgrade your plan or delete some files.`,
+          storageUsed: user.storageUsed,
+          storageLimit: user.storageLimit,
+          remainingStorage: remainingStorage,
+          fileSize: fileSizeInGB,
+          plan: user.plan,
+          code: "STORAGE_LIMIT_EXCEEDED"
+        },
+        { status: 413 }
+      );
+    }
+
     // Upload to Cloudinary
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
@@ -151,9 +180,20 @@ export async function POST(request) {
       uploadedBy: user._id,
     });
 
-    // Update family storage
-    family.storageUsed = (family.storageUsed || 0) + Math.round(file.size / (1024 * 1024 * 1024) * 100) / 100;
+    // ─── UPDATE USER STORAGE ───
+    user.storageUsed = (user.storageUsed || 0) + fileSizeInGB;
+    await user.save();
+
+    // ─── UPDATE FAMILY STORAGE (for display purposes) ───
+    family.storageUsed = (family.storageUsed || 0) + fileSizeInGB;
     await family.save();
+
+    console.log('Storage updated:', {
+      userId: user._id,
+      userStorageUsed: user.storageUsed,
+      userStorageLimit: user.storageLimit,
+      familyStorageUsed: family.storageUsed,
+    });
 
     return NextResponse.json(
       {
@@ -162,6 +202,12 @@ export async function POST(request) {
           id: record._id,
           documentName: record.documentName,
           fileUrl: record.fileUrl,
+        },
+        storage: {
+          used: user.storageUsed,
+          limit: user.storageLimit,
+          remaining: user.storageLimit - user.storageUsed,
+          percentageUsed: (user.storageUsed / user.storageLimit) * 100,
         },
       },
       { status: 201 }

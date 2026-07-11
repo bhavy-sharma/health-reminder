@@ -1,3 +1,4 @@
+// models/User.js
 import mongoose from "mongoose";
 
 const UserSchema = new mongoose.Schema(
@@ -131,13 +132,52 @@ const UserSchema = new mongoose.Schema(
     lastLogin: {
       type: Date,
     },
+    // ─── Plan & Subscription ───
+    plan: {
+      type: String,
+      enum: ["free", "family", "premium"],
+      default: "free",
+    },
+    subscription: {
+      plan: {
+        type: String,
+        enum: ["free", "family", "premium"],
+      },
+      status: {
+        type: String,
+        enum: ["active", "expired", "cancelled", "pending"],
+        default: "pending",
+      },
+      billingCycle: {
+        type: String,
+        enum: ["monthly", "annual"],
+      },
+      startDate: {
+        type: Date,
+      },
+      expiresAt: {
+        type: Date,
+      },
+      paymentId: {
+        type: String,
+      },
+    },
+    // ─── Storage (Root level - NOT inside subscription) ───
+    storageUsed: {
+      type: Number,
+      default: 0, // in GB
+    },
+    storageLimit: {
+      type: Number,
+      default: 1, // 1 GB for free plan
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// ── Indexes ──────────────────────────────────────────────────────
+// ─── Indexes ──────────────────────────────────────────────────────
 UserSchema.index({ mobile: 1 });
 UserSchema.index({ email: 1 });
 UserSchema.index({ "families.familyId": 1 });
@@ -146,9 +186,10 @@ UserSchema.index({ isSuspended: 1 });
 UserSchema.index({ "address.city": 1 });
 UserSchema.index({ "address.state": 1 });
 UserSchema.index({ "address.district": 1 });
+UserSchema.index({ plan: 1 });
 
-// ── Virtual for full address ──────────────────────────────────
-UserSchema.virtual("fullAddress").get(function() {
+// ─── Virtual for full address ──────────────────────────────────
+UserSchema.virtual("fullAddress").get(function () {
   const parts = [];
   if (this.address?.street) parts.push(this.address.street);
   if (this.address?.area) parts.push(this.address.area);
@@ -161,16 +202,32 @@ UserSchema.virtual("fullAddress").get(function() {
   return parts.join(", ");
 });
 
-// ── Virtual for formatted location ────────────────────────────
-UserSchema.virtual("locationDisplay").get(function() {
+// ─── Virtual for formatted location ────────────────────────────
+UserSchema.virtual("locationDisplay").get(function () {
   const parts = [];
   if (this.address?.city) parts.push(this.address.city);
   if (this.address?.state) parts.push(this.address.state);
   return parts.join(", ") || "Location not specified";
 });
 
-// ── Method to get address as object ────────────────────────────
-UserSchema.methods.getAddress = function() {
+// ─── Virtual: remaining storage ────────────────────────────────
+UserSchema.virtual("remainingStorage").get(function () {
+  return Math.max(0, this.storageLimit - this.storageUsed);
+});
+
+// ─── Virtual: storage percentage ───────────────────────────────
+UserSchema.virtual("storagePercentage").get(function () {
+  if (this.storageLimit === 0) return 0;
+  return Math.min(100, (this.storageUsed / this.storageLimit) * 100);
+});
+
+// ─── Virtual: is storage full ──────────────────────────────────
+UserSchema.virtual("isStorageFull").get(function () {
+  return this.storageUsed >= this.storageLimit;
+});
+
+// ─── Method to get address as object ────────────────────────────
+UserSchema.methods.getAddress = function () {
   return {
     street: this.address?.street || "",
     area: this.address?.area || "",
