@@ -113,7 +113,11 @@ export async function GET(request) {
         day: "numeric",
         year: "numeric",
       }),
-      doctor: record.notes || "No additional notes",
+      doctor: record.doctorName 
+        ? `Dr. ${record.doctorName}${record.hospitalName ? ` (${record.hospitalName})` : ''}` 
+        : (record.hospitalName || "Not specified"),
+      doctorName: record.doctorName,
+      hospitalName: record.hospitalName,
       type: getIconType(record.documentType),
       fileUrl: record.fileUrl,
       filePublicId: record.filePublicId,

@@ -31,11 +31,15 @@ const MedicineReminderSchema = new mongoose.Schema(
       enum: ['Before Food', 'After Food', 'With Food', 'No Relation'],
       default: 'After Food',
     },
-    // Scheduling flags
+    // Legacy Scheduling flags
     morning: { type: Boolean, default: false },
     afternoon: { type: Boolean, default: false },
     evening: { type: Boolean, default: false },
     night: { type: Boolean, default: false },
+    
+    // New unified timing identifiers
+    timingOptions: { type: [String], default: [] },
+    
     customTime: { type: String }, // e.g. "14:30" or ""
     
     startDate: { type: Date, required: true },

@@ -82,18 +82,38 @@ export default function DoctorVisitPrepPage() {
         const profileRes = await fetch('/api/user/profile');
         if (!profileRes.ok) throw new Error('Failed to fetch profile');
         const profileData = await profileRes.json();
-        const familyId = profileData.user?.activeFamilyId?._id || profileData.user?.activeFamilyId;
+        const user = profileData.user;
+        
+        let allMembers = [];
+
+        if (user) {
+          allMembers.push({
+            _id: user._id,
+            name: `${user.fullName} (You)`,
+            dateOfBirth: user.profile?.dateOfBirth,
+            gender: user.profile?.gender,
+            bloodGroup: user.profile?.bloodGroup,
+            avatarColor: user.profile?.avatarColor || '#0D1B2A',
+            allergies: user.allergies || [],
+            isPrimary: true,
+          });
+        }
+
+        const familyId = user?.activeFamilyId?._id || user?.activeFamilyId;
 
         if (familyId) {
           const membersRes = await fetch(`/api/family/members?familyId=${familyId}`);
           if (membersRes.ok) {
             const membersData = await membersRes.json();
             const members = membersData.members || [];
-            setFamilyMembers(members);
-            if (members.length > 0) {
-              setSelectedMember(members[0]);
-            }
+            const otherMembers = members.filter(m => !m.isPrimary);
+            allMembers = [...allMembers, ...otherMembers];
           }
+        }
+        
+        setFamilyMembers(allMembers);
+        if (allMembers.length > 0) {
+          setSelectedMember(allMembers[0]);
         }
       } catch (err) {
         console.error('Error fetching family data:', err);

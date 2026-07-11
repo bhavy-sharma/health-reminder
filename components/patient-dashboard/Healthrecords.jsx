@@ -80,7 +80,7 @@ export default function HealthRecordsPage() {
     const [members, setMembers] = useState([]);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [uploading, setUploading] = useState(false);
-    const [uploadForm, setUploadForm] = useState({ memberId: '', documentName: '', documentType: 'lab_report', documentDate: '', notes: '', file: null });
+    const [uploadForm, setUploadForm] = useState({ memberId: '', documentName: '', documentType: 'lab_report', documentDate: '', doctorName: '', hospitalName: '', notes: '', file: null });
     const [storage, setStorage] = useState({ used: 0, limit: 1, remaining: 1, percentageUsed: 0, isFull: false, plan: 'free' });
 
     useEffect(() => { fetchData(); }, []);
@@ -161,6 +161,8 @@ export default function HealthRecordsPage() {
             fd.append('documentName', uploadForm.documentName);
             fd.append('documentType', uploadForm.documentType);
             fd.append('documentDate', uploadForm.documentDate || new Date().toISOString().split('T')[0]);
+            if (uploadForm.doctorName) fd.append('doctorName', uploadForm.doctorName);
+            if (uploadForm.hospitalName) fd.append('hospitalName', uploadForm.hospitalName);
             fd.append('notes', uploadForm.notes);
             const res = await fetch('/api/health-records/upload', { method: 'POST', body: fd });
             const data = await res.json();
@@ -170,7 +172,7 @@ export default function HealthRecordsPage() {
             if (!res.ok) throw new Error(data.error || 'Upload failed');
             Toast.success('Record uploaded!');
             await fetchStorageInfo();
-            setUploadForm({ memberId: '', documentName: '', documentType: 'lab_report', documentDate: '', notes: '', file: null });
+            setUploadForm({ memberId: '', documentName: '', documentType: 'lab_report', documentDate: '', doctorName: '', hospitalName: '', notes: '', file: null });
             setShowUploadModal(false);
             await fetchRecords();
         } catch (err) { handleAuthError(err, 'Upload failed'); }
@@ -361,6 +363,16 @@ export default function HealthRecordsPage() {
                             <div>
                                 <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-2">Document Date</label>
                                 <input type="date" value={uploadForm.documentDate} onChange={(e) => setUploadForm({ ...uploadForm, documentDate: e.target.value })} className="w-full px-4 py-3 border border-[#E2E8F0] rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-semibold text-[#111827] bg-white" />
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-2">Doctor Name (Optional)</label>
+                                    <input type="text" value={uploadForm.doctorName} onChange={(e) => setUploadForm({ ...uploadForm, doctorName: e.target.value })} className="w-full px-4 py-3 border border-[#E2E8F0] rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-semibold text-[#111827] bg-white placeholder-gray-400" placeholder="e.g., John Doe" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-2">Hospital/Clinic (Optional)</label>
+                                    <input type="text" value={uploadForm.hospitalName} onChange={(e) => setUploadForm({ ...uploadForm, hospitalName: e.target.value })} className="w-full px-4 py-3 border border-[#E2E8F0] rounded-xl focus:ring-2 focus:ring-blue-500 text-sm font-semibold text-[#111827] bg-white placeholder-gray-400" placeholder="e.g., City Hospital" />
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-2">File * (JPEG, PNG, PDF - Max 10MB)</label>

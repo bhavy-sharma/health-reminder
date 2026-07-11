@@ -23,7 +23,7 @@ const FamilyMemberSchema = new mongoose.Schema(
     },
     relationship: {
       type: String,
-      enum: ["self", "spouse", "father", "mother", "son", "daughter", "grandfather", "grandmother", "other"],
+      enum: ["self", "spouse", "father", "mother", "son", "daughter", "brother", "sister", "grandfather", "grandmother", "other"],
       required: [true, "Relationship is required"],
       default: "self",
     },
