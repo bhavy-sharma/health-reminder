@@ -29,7 +29,7 @@ import Sidebar from './Sidebar';
 import toast, { Toaster } from 'react-hot-toast';
 
 export default function MedicineTracker() {
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'history'
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [familyId, setFamilyId] = useState(null);
@@ -184,6 +184,53 @@ export default function MedicineTracker() {
     }
   };
 
+  // Helper function to convert 12-hour to 24-hour format (for input field)
+  const convertTo24HourFormat = (time12) => {
+    if (!time12) return '08:00';
+    
+    // If already in 24-hour format, return as is
+    if (/^\d{1,2}:\d{2}$/.test(time12.trim())) {
+      return time12.trim();
+    }
+    
+    // Convert from 12-hour format
+    const match = time12.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return '08:00';
+    
+    let hours = parseInt(match[1]);
+    const minutes = parseInt(match[2]);
+    const meridian = match[3].toUpperCase();
+    
+    if (meridian === 'PM' && hours < 12) hours += 12;
+    if (meridian === 'AM' && hours === 12) hours = 0;
+    
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  };
+
+  // Helper function to convert 24-hour to 12-hour format (for display and API)
+  const convertTo12HourFormat = (time24) => {
+    if (!time24) return '08:00 AM';
+    
+    // If already in 12-hour format, return as is
+    if (/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(time24.trim())) {
+      return time24.trim();
+    }
+    
+    // Convert from 24-hour format
+    const parts = time24.split(':');
+    if (parts.length < 2) return '08:00 AM';
+    
+    let hours = parseInt(parts[0]) || 0;
+    let minutes = parseInt(parts[1]) || 0;
+    
+    const isPM = hours >= 12;
+    let displayHours = hours % 12;
+    if (displayHours === 0) displayHours = 12;
+    const meridian = isPM ? 'PM' : 'AM';
+    
+    return `${String(displayHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${meridian}`;
+  };
+
   const handleOpenAddModal = (member) => {
     setSelectedMember(member);
     setIsEditMode(false);
@@ -200,7 +247,7 @@ export default function MedicineTracker() {
       customTime: '',
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      reminderTime: '08:00', // Standard 24h format for HTML time inputs
+      reminderTime: '08:00 AM',
       responseWindowMinutes: '10',
       messageTemplate: `Hello ${member.name},\n\nThis is your medicine reminder.\nMedicine: {medicine}\nDosage: {dosage}\n\nPlease take your medicine now.\n\nReply:\n1️⃣ TAKEN\n2️⃣ SKIP`,
       repeatType: 'Daily'
@@ -213,16 +260,10 @@ export default function MedicineTracker() {
     setIsEditMode(true);
     setEditingReminderId(reminder._id);
 
-    // Convert saved reminderTime string to 24-hour format "HH:MM" if it contains AM/PM
+    // Ensure the time is in 12-hour format for display
     let formattedTime = reminder.reminderTime;
-    if (reminder.reminderTime.includes(' ')) {
-      let [timePart, ampm] = reminder.reminderTime.split(' ');
-      let [h, m] = timePart.split(':');
-      let hr = parseInt(h) || 0;
-      if (ampm.toUpperCase() === 'PM' && hr < 12) hr += 12;
-      if (ampm.toUpperCase() === 'AM' && hr === 12) hr = 0;
-      let hrStr = hr < 10 ? '0' + hr : hr;
-      formattedTime = `${hrStr}:${m}`;
+    if (formattedTime && !formattedTime.includes(' ')) {
+      formattedTime = convertTo12HourFormat(formattedTime);
     }
 
     setFormData({
@@ -235,7 +276,7 @@ export default function MedicineTracker() {
       afternoon: reminder.afternoon,
       evening: reminder.evening,
       night: reminder.night,
-      customTime: reminder.customTime,
+      customTime: reminder.customTime || '',
       startDate: new Date(reminder.startDate).toISOString().split('T')[0],
       endDate: new Date(reminder.endDate).toISOString().split('T')[0],
       reminderTime: formattedTime,
@@ -255,22 +296,32 @@ export default function MedicineTracker() {
 
     try {
       setSubmitting(true);
+      
+      // Ensure reminderTime is in 12-hour format before sending
+      const timeToSend = convertTo12HourFormat(formData.reminderTime);
+      
       const url = isEditMode 
         ? `/api/medicine-reminder/${editingReminderId}`
         : '/api/medicine-reminder';
       const method = isEditMode ? 'PUT' : 'POST';
 
+      const payload = {
+        ...formData,
+        reminderTime: timeToSend,
+        familyId
+      };
+
       const res = await fetch(url, {
         method: method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          familyId
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save reminder');
+      if (!res.ok) {
+        console.error('Error response:', data);
+        throw new Error(data.error || data.message || 'Failed to save reminder');
+      }
 
       toast.success(isEditMode ? 'Medicine reminder updated successfully!' : 'Medicine reminder added successfully!');
       setShowAddModal(false);
@@ -680,8 +731,6 @@ export default function MedicineTracker() {
 
               {/* Right Column (SaaS Cards & Notification Board) */}
               <div className="space-y-6">
-                
-
 
                 {/* Upcoming Reminders Card */}
                 <div className="bg-white rounded-[16px] border border-[#E2E8F0] p-6 shadow-sm space-y-4">
@@ -839,7 +888,9 @@ export default function MedicineTracker() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-[20px] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-[#E2E8F0]">
             <div className="flex justify-between items-center p-6 border-b border-[#E2E8F0]">
-              <h2 className="text-xl font-bold text-[#111827]">Add Medicine Reminder</h2>
+              <h2 className="text-xl font-bold text-[#111827]">
+                {isEditMode ? 'Edit Medicine Reminder' : 'Add Medicine Reminder'}
+              </h2>
               <button onClick={() => setShowAddModal(false)} className="p-1.5 hover:bg-slate-50 rounded-full transition cursor-pointer">
                 <X className="w-5 h-5 text-[#475569]" />
               </button>
@@ -859,7 +910,7 @@ export default function MedicineTracker() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-2">Medicine Name</label>
+                  <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-2">Medicine Name *</label>
                   <input
                     type="text"
                     required
@@ -888,7 +939,7 @@ export default function MedicineTracker() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-2">Dosage</label>
+                  <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-2">Dosage *</label>
                   <input
                     type="text"
                     required
@@ -914,14 +965,21 @@ export default function MedicineTracker() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-2">Reminder Scheduled Time</label>
+                  <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-2">Reminder Time *</label>
                   <input
                     type="time"
                     required
-                    value={formData.reminderTime}
-                    onChange={(e) => setFormData({ ...formData, reminderTime: e.target.value })}
+                    value={convertTo24HourFormat(formData.reminderTime)}
+                    onChange={(e) => {
+                      const time24 = e.target.value;
+                      const converted = convertTo12HourFormat(time24);
+                      setFormData({ ...formData, reminderTime: converted });
+                    }}
                     className="w-full px-4 py-3 border border-[#E2E8F0] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-[#111827]"
                   />
+                  <p className="text-xs text-[#475569] mt-1">
+                    Selected: <span className="font-bold text-blue-600">{formData.reminderTime}</span>
+                  </p>
                 </div>
 
                 <div>
@@ -1025,15 +1083,22 @@ export default function MedicineTracker() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-rose-800 text-white text-xs font-bold rounded-xl transition-all shadow-md disabled:opacity-50 cursor-pointer"
+                  className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-xs font-bold rounded-xl transition-all shadow-md disabled:opacity-50 cursor-pointer"
                 >
-                  {submitting ? 'Saving...' : 'Save Reminder'}
+                  {submitting ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+                    </span>
+                  ) : (
+                    'Save Reminder'
+                  )}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
       {/* Member Reminders Modal */}
       {showMemberRemindersModal && viewingMemberReminders && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -1062,26 +1127,17 @@ export default function MedicineTracker() {
                     const id = r.memberId?._id?.toString() || r.memberId?.toString();
                     return id === viewingMemberReminders._id?.toString();
                   }).map((rem) => {
-                  // ── Is this reminder schedule still active? ──────────────────────────────
-                  // Active = endDate has NOT passed yet (compare date-only, ignore clock time)
                   const todayMidnight = new Date();
                   todayMidnight.setHours(0, 0, 0, 0);
                   const endDateMidnight = new Date(rem.endDate);
                   endDateMidnight.setHours(0, 0, 0, 0);
                   const isActive = endDateMidnight >= todayMidnight;
 
-                  // Format reminderTime → 12h AM/PM for display
                   let displayTime = rem.reminderTime;
                   if (rem.reminderTime && !rem.reminderTime.includes(' ')) {
-                    let [h, m] = rem.reminderTime.split(':');
-                    let hr = parseInt(h) || 0;
-                    let min = parseInt(m) || 0;
-                    let ampm = hr >= 12 ? 'PM' : 'AM';
-                    hr = hr % 12 || 12;
-                    displayTime = `${hr < 10 ? '0' + hr : hr}:${min < 10 ? '0' + min : min} ${ampm}`;
+                    displayTime = convertTo12HourFormat(rem.reminderTime);
                   }
 
-                  // Format dates for display
                   const fmtDate = (d) => {
                     const dt = new Date(d);
                     return dt.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });

@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/db";
 import MedicineReminder from "@/models/MedicineReminder";
 import ReminderLog from "@/models/ReminderLog";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { isValid12HourFormat, formatTo12Hour } from "@/lib/timeUtils";
 
 // PUT: Edit medicine reminder or toggle isActive status
 export async function PUT(request, { params }) {
@@ -16,6 +17,17 @@ export async function PUT(request, { params }) {
     const { id } = await params;
     const body = await request.json();
 
+    // If reminderTime is being updated, validate 12-hour format
+    if (body.reminderTime) {
+      if (!isValid12HourFormat(body.reminderTime)) {
+        return NextResponse.json({ 
+          error: "Time must be in 12-hour format (e.g., '02:30 PM')" 
+        }, { status: 400 });
+      }
+      // Format time for consistency
+      body.reminderTime = formatTo12Hour(body.reminderTime);
+    }
+
     const updatedReminder = await MedicineReminder.findByIdAndUpdate(
       id,
       { ...body },
@@ -26,7 +38,16 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: "Reminder not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ message: "Reminder updated successfully", reminder: updatedReminder }, { status: 200 });
+    // Format time in response
+    const responseReminder = {
+      ...updatedReminder.toObject(),
+      reminderTime: formatTo12Hour(updatedReminder.reminderTime)
+    };
+
+    return NextResponse.json({ 
+      message: "Reminder updated successfully", 
+      reminder: responseReminder 
+    }, { status: 200 });
   } catch (error) {
     console.error("Error updating medicine reminder:", error);
     return NextResponse.json({ error: "Failed to update reminder" }, { status: 500 });

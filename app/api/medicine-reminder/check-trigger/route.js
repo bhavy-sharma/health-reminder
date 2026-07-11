@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import MedicineReminder from "@/models/MedicineReminder";
 import ReminderLog from "@/models/ReminderLog";
+import { parseTimeToNumbers, formatTo12Hour } from "@/lib/timeUtils";
 
 // In-memory notification store (polled by frontend every 4.5s)
 if (!global.simulatedNotifications) {
@@ -56,7 +57,7 @@ export async function POST(request) {
       const log = await ReminderLog.findById(extendLogId);
       if (log) {
         log.status = 'Sent';
-        log.scheduledTime = new Date();            // reset to now
+        log.scheduledTime = new Date();
         log.messageSid = 'pending_trigger';
         await log.save();
 
@@ -91,21 +92,11 @@ export async function POST(request) {
       const endDate    = new Date(reminder.endDate.getFullYear(), reminder.endDate.getMonth(), reminder.endDate.getDate());
       if (todayDate < startDate || todayDate > endDate) continue;
 
-      // Parse reminder time → 24h numbers
-      let timePart = reminder.reminderTime;
-      let modifier = null;
-      if (reminder.reminderTime.includes(' ')) {
-        [timePart, modifier] = reminder.reminderTime.split(' ');
-      }
-      let [hStr, mStr] = timePart.split(':');
-      let h = parseInt(hStr) || 0;
-      let m = parseInt(mStr) || 0;
-      if (modifier) {
-        if (modifier.toUpperCase() === 'PM' && h < 12) h += 12;
-        if (modifier.toUpperCase() === 'AM' && h === 12) h = 0;
-      }
+      // Parse time using utility function
+      const { hours, minutes } = parseTimeToNumbers(reminder.reminderTime);
+      
       const scheduledTime = new Date(now);
-      scheduledTime.setHours(h, m, 0, 0);
+      scheduledTime.setHours(hours, minutes, 0, 0);
 
       // Find or create today's log for this reminder
       let log = await ReminderLog.findOne({
@@ -124,10 +115,11 @@ export async function POST(request) {
           messageSid: 'pending_trigger'
         });
 
+        const formattedTime = formatTo12Hour(reminder.reminderTime);
         global.simulatedNotifications.unshift({
           id: Math.random().toString(36).substr(2, 9),
           type: 'Reminder Sent',
-          message: `Reminder created for ${memberName} — ${reminder.medicineName} @ ${reminder.reminderTime}`,
+          message: `Reminder created for ${memberName} — ${reminder.medicineName} @ ${formattedTime}`,
           timestamp: new Date()
         });
 

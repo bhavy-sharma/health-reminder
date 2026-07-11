@@ -5,6 +5,7 @@ import ReminderLog from "@/models/ReminderLog";
 import FamilyMember from "@/models/FamilyMember";
 import User from "@/models/User";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { isValid12HourFormat, formatTo12Hour, parseTimeToNumbers } from "@/lib/timeUtils";
 
 // GET: Fetch active reminders and calculate today's statistics
 export async function GET(request) {
@@ -91,8 +92,14 @@ export async function GET(request) {
     const missedTodayCount = todayLogs.filter(l => l.status === "Missed").length;
     const pendingTodayCount = todayLogs.filter(l => l.status === "Sent").length;
 
+    // Format reminder times to 12-hour format for response
+    const formattedReminders = reminders.map(reminder => ({
+      ...reminder.toObject(),
+      reminderTime: formatTo12Hour(reminder.reminderTime)
+    }));
+
     return NextResponse.json({
-      reminders,
+      reminders: formattedReminders,
       todayLogs,
       stats: {
         activeReminders: activeRemindersCount,
@@ -180,6 +187,16 @@ export async function POST(request) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
+    // Validate 12-hour format
+    if (!isValid12HourFormat(reminderTime)) {
+      return NextResponse.json({ 
+        error: "Time must be in 12-hour format (e.g., '02:30 PM')" 
+      }, { status: 400 });
+    }
+
+    // Format time to ensure consistency
+    const formattedTime = formatTo12Hour(reminderTime);
+
     // Check if user has access to this family
     const user = await User.findById(auth.userId);
     const hasAccess = user.families?.some(f => f.familyId.toString() === familyId);
@@ -214,7 +231,7 @@ export async function POST(request) {
       customTime: customTime || "",
       startDate: new Date(startDate),
       endDate: new Date(endDate),
-      reminderTime,
+      reminderTime: formattedTime, // Store in 12-hour format
       responseWindowMinutes: parseInt(responseWindowMinutes) || 10,
       messageTemplate: messageTemplate || `Hello {name}, this is your reminder to take {dosage} of {medicine}.`,
       repeatType: repeatType || "Daily",
@@ -224,26 +241,10 @@ export async function POST(request) {
     // Populate memberId before returning
     const populated = await newReminder.populate("memberId");
 
-    // Pre-seed today's log entry immediately so it populates today's table instantly
+    // Pre-seed today's log entry immediately
     try {
-      const now = new Date();
-      let timePart = reminderTime;
-      let modifier = null;
-      if (reminderTime.includes(' ')) {
-        const parts = reminderTime.split(' ');
-        timePart = parts[0];
-        modifier = parts[1];
-      }
-
-      let [hoursStr, minutesStr] = timePart.split(':');
-      let hours = parseInt(hoursStr) || 0;
-      let minutes = parseInt(minutesStr) || 0;
-
-      if (modifier) {
-        if (modifier.toUpperCase() === 'PM' && hours < 12) hours += 12;
-        if (modifier.toUpperCase() === 'AM' && hours === 12) hours = 0;
-      }
-
+      const { hours, minutes } = parseTimeToNumbers(formattedTime);
+      
       const scheduledToday = new Date();
       scheduledToday.setHours(hours, minutes, 0, 0);
 
@@ -261,7 +262,16 @@ export async function POST(request) {
       console.error("Failed to seed initial reminder log:", logErr);
     }
 
-    return NextResponse.json({ message: "Reminder created successfully", reminder: populated }, { status: 201 });
+    // Format time in response
+    const responseReminder = {
+      ...populated.toObject(),
+      reminderTime: formatTo12Hour(populated.reminderTime)
+    };
+
+    return NextResponse.json({ 
+      message: "Reminder created successfully", 
+      reminder: responseReminder 
+    }, { status: 201 });
   } catch (error) {
     console.error("Error creating medicine reminder:", error);
     return NextResponse.json({ error: "Failed to create reminder", details: error.message }, { status: 500 });

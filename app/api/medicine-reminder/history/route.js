@@ -3,6 +3,7 @@ import { connectToDatabase } from "@/lib/db";
 import ReminderLog from "@/models/ReminderLog";
 import MedicineReminder from "@/models/MedicineReminder";
 import { getAuthenticatedUser } from "@/lib/auth";
+import { formatTo12Hour } from "@/lib/timeUtils";
 
 export async function GET(request) {
   try {
@@ -40,7 +41,18 @@ export async function GET(request) {
       .populate("memberId")
       .sort({ scheduledTime: -1 });
 
-    return NextResponse.json({ logs }, { status: 200 });
+    // Format response with formatted times
+    const formattedLogs = logs.map(log => {
+      const logObj = log.toObject();
+      // Find the associated reminder to get the formatted time
+      const reminder = reminders.find(r => r._id.toString() === log.reminderId.toString());
+      return {
+        ...logObj,
+        reminderTime: reminder ? formatTo12Hour(reminder.reminderTime) : null
+      };
+    });
+
+    return NextResponse.json({ logs: formattedLogs }, { status: 200 });
   } catch (error) {
     console.error("Error fetching reminder history:", error);
     return NextResponse.json({ error: "Failed to fetch reminder history" }, { status: 500 });
