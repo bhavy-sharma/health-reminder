@@ -1,10 +1,10 @@
 // app/doctor/auth/page.jsx
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Upload, X, FileText, Image, CheckCircle } from "lucide-react";
 
 export default function DoctorAuthPage() {
   const router = useRouter();
@@ -24,8 +24,92 @@ export default function DoctorAuthPage() {
   const [city, setCity] = useState("");
   const [consultFee, setConsultFee] = useState("");
   
+  // Certificate upload state
+  const [certificate, setCertificate] = useState(null);
+  const [certificatePreview, setCertificatePreview] = useState(null);
+  const [certificateUploading, setCertificateUploading] = useState(false);
+  const [certificateError, setCertificateError] = useState("");
+  const fileInputRef = useRef(null);
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Handle certificate upload
+  const handleCertificateUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Reset previous errors
+    setCertificateError("");
+
+    // Validate file type
+    const validTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"];
+    if (!validTypes.includes(file.type)) {
+      setCertificateError("Please upload JPEG, PNG, GIF, WEBP, or PDF files only.");
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setCertificateError("File size too large. Maximum size is 5MB.");
+      return;
+    }
+
+    setCertificateUploading(true);
+
+    // Create form data
+    const formData = new FormData();
+    formData.append("certificate", file);
+
+    try {
+      const response = await fetch("/api/doctor/auth/upload-certificate", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Upload failed");
+      }
+
+      // Set certificate data
+      setCertificate({
+        url: data.data.url,
+        publicId: data.data.publicId,
+        fileName: data.data.fileName,
+        fileType: data.data.fileType,
+      });
+
+      // Set preview for images
+      if (file.type.startsWith("image/")) {
+        const reader = new FileReader();
+        reader.onload = (e) => setCertificatePreview(e.target.result);
+        reader.readAsDataURL(file);
+      } else {
+        // For PDFs, show a PDF icon
+        setCertificatePreview("pdf");
+      }
+
+    } catch (err) {
+      console.error("Upload error:", err);
+      setCertificateError(err.message || "Failed to upload certificate");
+      setCertificate(null);
+      setCertificatePreview(null);
+    } finally {
+      setCertificateUploading(false);
+    }
+  };
+
+  // Remove certificate
+  const removeCertificate = () => {
+    setCertificate(null);
+    setCertificatePreview(null);
+    setCertificateError("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -33,8 +117,6 @@ export default function DoctorAuthPage() {
     setLoading(true);
 
     try {
-      console.log('🔐 Login attempt for:', email);
-      
       const res = await fetch("/api/doctor/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -42,15 +124,13 @@ export default function DoctorAuthPage() {
       });
 
       const data = await res.json();
-      console.log('📥 Login response:', data);
 
       if (!res.ok) throw new Error(data.message || data.error || "Login failed");
 
-      // Redirect on success
       router.push("/doctor/dashboard");
       router.refresh();
     } catch (err) {
-      console.error('❌ Login error:', err);
+      console.error('Login error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -62,7 +142,14 @@ export default function DoctorAuthPage() {
     setError("");
     setLoading(true);
 
-    // Log the payload before sending
+    // Validate certificate
+    if (!certificate) {
+      setError("Please upload your medical practitioner certificate");
+      setLoading(false);
+      return;
+    }
+
+    // Prepare payload
     const payload = { 
       name, 
       email, 
@@ -73,14 +160,9 @@ export default function DoctorAuthPage() {
       hospital,
       city,
       consultFee: Number(consultFee),
-      password 
+      password,
+      medicalCertificate: certificate
     };
-    
-    console.log('📝 Signup payload:', { 
-      ...payload, 
-      password: password ? `[HIDDEN - length: ${password.length}]` : '❌ MISSING' 
-    });
-    console.log('🔑 Password value:', password ? `✅ ${password.length} characters` : '❌ Empty');
 
     try {
       const res = await fetch("/api/doctor/auth/signup", {
@@ -90,15 +172,13 @@ export default function DoctorAuthPage() {
       });
 
       const data = await res.json();
-      console.log('📥 Signup response:', data);
       
       if (!res.ok) throw new Error(data.message || data.error || "Signup failed");
 
-      // Redirect on success
       router.push("/doctor/dashboard");
       router.refresh();
     } catch (err) {
-      console.error('❌ Signup error:', err);
+      console.error('Signup error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -285,10 +365,10 @@ export default function DoctorAuthPage() {
               </p>
               
               {signupStep === 1 ? (
-                // Step 1 Form
+                // Step 1 Form with Certificate Upload
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-[var(--color-navy)] mb-1.5">Full Name</label>
+                    <label className="block text-sm font-medium text-[var(--color-navy)] mb-1.5">Full Name *</label>
                     <input 
                       type="text" 
                       value={name}
@@ -300,7 +380,7 @@ export default function DoctorAuthPage() {
 
                   <div className="flex gap-4">
                     <div className="flex-1">
-                      <label className="block text-sm font-medium text-[var(--color-navy)] mb-1.5">Email</label>
+                      <label className="block text-sm font-medium text-[var(--color-navy)] mb-1.5">Email *</label>
                       <input 
                         type="email" 
                         value={email}
@@ -310,7 +390,7 @@ export default function DoctorAuthPage() {
                       />
                     </div>
                     <div className="flex-1">
-                      <label className="block text-sm font-medium text-[var(--color-navy)] mb-1.5">Phone</label>
+                      <label className="block text-sm font-medium text-[var(--color-navy)] mb-1.5">Phone *</label>
                       <input 
                         type="text" 
                         value={phone}
@@ -322,7 +402,7 @@ export default function DoctorAuthPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-[var(--color-navy)] mb-1.5">Specialty</label>
+                    <label className="block text-sm font-medium text-[var(--color-navy)] mb-1.5">Specialty *</label>
                     <select 
                       value={specialty}
                       onChange={(e) => setSpecialty(e.target.value)}
@@ -337,7 +417,7 @@ export default function DoctorAuthPage() {
                   
                   <div className="flex gap-4">
                     <div className="flex-1">
-                      <label className="block text-sm font-medium text-[var(--color-navy)] mb-1.5">Medical Reg. No.</label>
+                      <label className="block text-sm font-medium text-[var(--color-navy)] mb-1.5">Medical Reg. No. *</label>
                       <input 
                         type="text" 
                         value={medicalRegNo}
@@ -357,12 +437,109 @@ export default function DoctorAuthPage() {
                       />
                     </div>
                   </div>
+
+                  {/* NEW: Medical Certificate Upload Section */}
+                  <div className="mt-6">
+                    <label className="block text-sm font-medium text-[var(--color-navy)] mb-1.5">
+                      Medical Practitioner Certificate *
+                      <span className="text-[var(--color-text-muted)] font-normal text-xs ml-2">(JPEG, PNG, PDF - Max 5MB)</span>
+                    </label>
+                    
+                    {/* Upload Area */}
+                    <div 
+                      className={`relative border-2 border-dashed rounded-lg p-6 transition-all ${
+                        certificate ? 'border-[var(--color-sage-green)] bg-[var(--color-success-fill)]' : 
+                        certificateError ? 'border-[var(--color-pulse-red)] bg-[var(--color-danger-fill)]' :
+                        'border-[var(--color-border)] hover:border-[var(--color-navy)]/40 bg-white/50'
+                      }`}
+                    >
+                      {!certificate ? (
+                        <>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".jpg,.jpeg,.png,.gif,.webp,.pdf"
+                            onChange={handleCertificateUpload}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            disabled={certificateUploading}
+                          />
+                          <div className="text-center">
+                            <div className="flex justify-center mb-3">
+                              <Upload className="w-10 h-10 text-[var(--color-text-muted)]" />
+                            </div>
+                            <p className="text-sm font-medium text-[var(--color-navy)]">
+                              {certificateUploading ? "Uploading..." : "Click to upload or drag & drop"}
+                            </p>
+                            <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                              Upload your medical registration certificate
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        // Uploaded file preview
+                        <div className="flex items-center gap-4">
+                          <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-white flex items-center justify-center shadow-sm">
+                            {certificatePreview === "pdf" ? (
+                              <FileText className="w-8 h-8 text-[var(--color-pulse-red)]" />
+                            ) : certificatePreview ? (
+                              <img 
+                                src={certificatePreview} 
+                                alt="Certificate preview" 
+                                className="w-full h-full object-cover rounded-lg"
+                              />
+                            ) : (
+                              <Image className="w-8 h-8 text-[var(--color-text-muted)]" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-[var(--color-navy)] truncate">
+                              {certificate.fileName}
+                            </p>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              <span className="text-xs text-[var(--color-sage-green)] flex items-center gap-1">
+                                <CheckCircle size={12} />
+                                Uploaded successfully
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={removeCertificate}
+                            className="flex-shrink-0 p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                          >
+                            <X className="w-5 h-5 text-[var(--color-text-muted)] hover:text-[var(--color-pulse-red)]" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Error Message */}
+                    {certificateError && (
+                      <p className="text-xs text-[var(--color-pulse-red)] mt-1.5">
+                        {certificateError}
+                      </p>
+                    )}
+                    
+                    {/* Uploading Indicator */}
+                    {certificateUploading && (
+                      <div className="mt-2">
+                        <div className="w-full h-1 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-[var(--color-navy)] rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                        </div>
+                        <p className="text-xs text-[var(--color-text-muted)] mt-1">Uploading to secure storage...</p>
+                      </div>
+                    )}
+                  </div>
                   
                   <button 
                     type="button"
                     onClick={() => {
-                      if(!name || !email || !specialty) {
+                      if(!name || !email || !specialty || !medicalRegNo) {
                         setError("Please fill all required fields to continue.");
+                        return;
+                      }
+                      if(!certificate) {
+                        setError("Please upload your medical practitioner certificate.");
                         return;
                       }
                       setError("");
@@ -375,11 +552,11 @@ export default function DoctorAuthPage() {
                   </button>
                 </div>
               ) : (
-                // Step 2 Form
+                // Step 2 Form (Same as before)
                 <div className="space-y-4">
                   <div className="bg-[var(--color-success-fill)] text-[var(--color-sage-green)] px-4 py-3 rounded-lg border border-[var(--color-sage-green)]/30 flex items-center gap-2 text-sm font-medium mb-6">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>
-                    Personal details saved — almost done!
+                    Personal details & certificate saved — almost done!
                   </div>
 
                   <div>
@@ -417,7 +594,7 @@ export default function DoctorAuthPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-[var(--color-navy)] mb-1.5">Set Password</label>
+                    <label className="block text-sm font-medium text-[var(--color-navy)] mb-1.5">Set Password *</label>
                     <div className="relative">
                       <input 
                         type={showPassword ? "text" : "password"} 
@@ -465,13 +642,6 @@ export default function DoctorAuthPage() {
               )}
             </div>
           )}
-
-        </div>
-        
-        <div className="absolute bottom-4 right-8 hidden md:block">
-          <button className="bg-[#2d2d2d] text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-lg hover:scale-105 transition-transform">
-            ?
-          </button>
         </div>
       </div>
     </div>

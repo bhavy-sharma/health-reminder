@@ -32,6 +32,8 @@ import {
   FileText,
   Users,
   Heart,
+  Image as ImageIcon,
+  Download,
 } from 'lucide-react';
 import AdminSidebar from '@/components/admin/Sidebar';
 
@@ -42,10 +44,28 @@ function ActionModal({ isOpen, onClose, onConfirm, title, message, action, loadi
   if (!isOpen) return null;
 
   const handleConfirm = () => {
-    if (action === 'suspend' && !reason.trim()) {
+    if ((action === 'suspend') && !reason.trim()) {
       return;
     }
     onConfirm(reason);
+  };
+
+  const getActionLabel = () => {
+    switch (action) {
+      case 'suspend': return 'Suspend';
+      case 'unsuspend': return 'Unsuspend';
+      case 'delete': return 'Delete';
+      default: return 'Confirm';
+    }
+  };
+
+  const getActionColor = () => {
+    switch (action) {
+      case 'suspend': return 'bg-amber-500 hover:bg-amber-600';
+      case 'unsuspend': return 'bg-emerald-500 hover:bg-emerald-600';
+      case 'delete': return 'bg-red-500 hover:bg-red-600';
+      default: return 'bg-blue-500 hover:bg-blue-600';
+    }
   };
 
   return (
@@ -66,12 +86,12 @@ function ActionModal({ isOpen, onClose, onConfirm, title, message, action, loadi
         {action === 'suspend' && (
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Suspension Reason
+              Suspension Reason *
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Enter reason for suspension..."
+              placeholder="Enter suspension reason..."
               className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 text-sm"
               rows="3"
             />
@@ -91,15 +111,7 @@ function ActionModal({ isOpen, onClose, onConfirm, title, message, action, loadi
           <button
             onClick={handleConfirm}
             disabled={loading || (action === 'suspend' && !reason.trim())}
-            className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50 ${
-              action === 'delete' 
-                ? 'bg-red-500 hover:bg-red-600' 
-                : action === 'suspend'
-                ? 'bg-amber-500 hover:bg-amber-600'
-                : action === 'unsuspend'
-                ? 'bg-emerald-500 hover:bg-emerald-600'
-                : 'bg-blue-500 hover:bg-blue-600'
-            }`}
+            className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50 ${getActionColor()}`}
           >
             {loading ? (
               <div className="flex items-center justify-center gap-2">
@@ -107,7 +119,7 @@ function ActionModal({ isOpen, onClose, onConfirm, title, message, action, loadi
                 Processing...
               </div>
             ) : (
-              'Confirm'
+              getActionLabel()
             )}
           </button>
         </div>
@@ -117,12 +129,28 @@ function ActionModal({ isOpen, onClose, onConfirm, title, message, action, loadi
 }
 
 // ── Status Badge ──────────────────────────────────────────────
-function StatusBadge({ isVerified }) {
+function StatusBadge({ isVerified, isSuspended, status }) {
+  if (isSuspended) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-200">
+        <XCircle className="w-3.5 h-3.5" />
+        Suspended
+      </span>
+    );
+  }
+  if (status === 'rejected') {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-red-50 text-red-700 border border-red-200">
+        <XCircle className="w-3.5 h-3.5" />
+        Rejected
+      </span>
+    );
+  }
   if (isVerified) {
     return (
       <span className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
         <CheckCircle className="w-3.5 h-3.5" />
-        Verified
+        Approved
       </span>
     );
   }
@@ -131,6 +159,225 @@ function StatusBadge({ isVerified }) {
       <Clock className="w-3.5 h-3.5" />
       Pending
     </span>
+  );
+}
+
+// ── Certificate Viewer Component ────────────────────────────
+function CertificateViewer({ certificate }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewerError, setViewerError] = useState(false);
+  
+  if (!certificate) {
+    return (
+      <div className="text-center py-8 text-gray-400">
+        <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
+        <p className="text-sm">No medical certificate uploaded</p>
+      </div>
+    );
+  }
+
+  const isImage = certificate.fileType?.startsWith('image/');
+  const isPDF = certificate.fileType === 'application/pdf';
+
+  const getFileExtension = (filename) => {
+    if (!filename) return '';
+    return filename.split('.').pop().toLowerCase();
+  };
+
+  const fileExt = getFileExtension(certificate.fileName);
+
+  return (
+    <>
+      <div className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+        <div className="flex items-start gap-4">
+          <div 
+            className="w-24 h-24 rounded-lg border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow flex-shrink-0 bg-gray-50"
+            onClick={() => {
+              setIsModalOpen(true);
+              setViewerError(false);
+            }}
+          >
+            {isImage ? (
+              <img 
+                src={certificate.url} 
+                alt={certificate.fileName}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.src = '';
+                  e.target.alt = 'Failed to load';
+                }}
+              />
+            ) : isPDF || fileExt === 'pdf' ? (
+              <div className="w-full h-full flex items-center justify-center bg-red-50">
+                <FileText className="w-10 h-10 text-red-500" />
+              </div>
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                <FileText className="w-10 h-10 text-gray-400" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <h4 className="font-medium text-gray-900 text-sm truncate" title={certificate.fileName}>
+              {certificate.fileName}
+            </h4>
+            <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-400">
+              <span>{certificate.fileType || 'Unknown type'}</span>
+              <span>•</span>
+              <span>
+                Uploaded: {certificate.uploadedAt ? new Date(certificate.uploadedAt).toLocaleDateString() : 'N/A'}
+              </span>
+            </div>
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => {
+                  setIsModalOpen(true);
+                  setViewerError(false);
+                }}
+                className="px-3 py-1.5 bg-emerald-50 text-emerald-600 text-xs font-medium rounded-lg hover:bg-emerald-100 transition-colors flex items-center gap-1.5"
+              >
+                <ImageIcon className="w-3.5 h-3.5" />
+                {isPDF || fileExt === 'pdf' ? 'View PDF' : 'View Certificate'}
+              </button>
+              <a 
+                href={certificate.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-gray-50 text-gray-600 text-xs font-medium rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-1.5"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Download
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {isModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl max-w-4xl max-h-[90vh] overflow-auto w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+              <div>
+                <h3 className="font-semibold text-gray-900">Medical Certificate</h3>
+                <p className="text-xs text-gray-400 truncate max-w-[200px] sm:max-w-md">
+                  {certificate.fileName}
+                </p>
+              </div>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-4 flex items-center justify-center min-h-[400px]">
+              {isImage ? (
+                <img 
+                  src={certificate.url} 
+                  alt={certificate.fileName}
+                  className="max-w-full h-auto max-h-[70vh] object-contain"
+                  onError={(e) => {
+                    e.target.src = '';
+                    e.target.alt = 'Failed to load image';
+                  }}
+                />
+              ) : isPDF || fileExt === 'pdf' ? (
+                <div className="w-full">
+                  {!viewerError ? (
+                    <>
+                      <iframe
+                        src={`https://docs.google.com/viewer?url=${encodeURIComponent(certificate.url)}&embedded=true`}
+                        className="w-full h-[70vh] border border-gray-200 rounded-lg"
+                        title={certificate.fileName}
+                        onError={() => setViewerError(true)}
+                      />
+                      <div className="text-center mt-4 flex flex-wrap justify-center gap-3">
+                        <a 
+                          href={certificate.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                        >
+                          <FileText className="w-4 h-4" />
+                          Open PDF in New Tab
+                        </a>
+                        <a 
+                          href={certificate.url}
+                          download
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download PDF
+                        </a>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-12">
+                      <FileText className="w-16 h-16 text-red-300 mx-auto mb-4" />
+                      <p className="text-gray-600 mb-4">Unable to preview the PDF</p>
+                      <div className="flex flex-wrap justify-center gap-3">
+                        <a 
+                          href={certificate.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                        >
+                          <FileText className="w-4 h-4" />
+                          Open PDF in New Tab
+                        </a>
+                        <a 
+                          href={certificate.url}
+                          download
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download PDF
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <FileText className="w-16 h-16 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500">Unsupported file type: {certificate.fileType || 'Unknown'}</p>
+                  <a 
+                    href={certificate.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download File
+                  </a>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-between items-center p-4 border-t border-gray-100">
+              <div className="text-xs text-gray-400">
+                File: {certificate.fileName}
+              </div>
+              <a 
+                href={certificate.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-medium hover:bg-emerald-600 transition-colors flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -146,7 +393,6 @@ export default function DoctorDetailPage() {
   const [doctor, setDoctor] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Modal state
   const [modal, setModal] = useState({
     isOpen: false,
     action: '',
@@ -154,7 +400,6 @@ export default function DoctorDetailPage() {
     message: '',
   });
 
-  // Toast notification state
   const [toast, setToast] = useState({
     show: false,
     message: '',
@@ -172,7 +417,6 @@ export default function DoctorDetailPage() {
     }
   }, [doctorId]);
 
-  // Show toast notification
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
     setTimeout(() => {
@@ -229,7 +473,8 @@ export default function DoctorDetailPage() {
   const handleAction = async (action, reason = '') => {
     try {
       setActionLoading(true);
-      const response = await fetch('/api/admin/doctors', {
+      
+      const response = await fetch('/api/admin/doctors/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -264,14 +509,12 @@ export default function DoctorDetailPage() {
     const actionTitles = {
       suspend: 'Suspend Doctor',
       unsuspend: 'Unsuspend Doctor',
-      verify: 'Verify Doctor',
       delete: 'Delete Doctor',
     };
 
     const actionMessages = {
       suspend: `Are you sure you want to suspend ${doctor?.name}? They will not be able to practice on the platform.`,
       unsuspend: `Are you sure you want to unsuspend ${doctor?.name}? They will regain access to the platform.`,
-      verify: `Are you sure you want to verify ${doctor?.name}? They will be able to start practicing.`,
       delete: `Are you sure you want to delete ${doctor?.name}? This action cannot be undone.`,
     };
 
@@ -283,7 +526,6 @@ export default function DoctorDetailPage() {
     });
   };
 
-  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F5F5F2] flex">
@@ -300,7 +542,6 @@ export default function DoctorDetailPage() {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="min-h-screen bg-[#F5F5F2] flex">
@@ -362,7 +603,6 @@ export default function DoctorDetailPage() {
 
       <main className="flex-1 w-full md:pl-[260px]">
         <div className="p-4 sm:p-8 max-w-[1200px] mx-auto">
-          {/* Toast Notification */}
           {toast.show && (
             <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm ${
               toast.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'
@@ -371,7 +611,6 @@ export default function DoctorDetailPage() {
             </div>
           )}
 
-          {/* Action Modal */}
           <ActionModal
             isOpen={modal.isOpen}
             onClose={() => setModal({ isOpen: false, action: '', title: '', message: '' })}
@@ -382,7 +621,6 @@ export default function DoctorDetailPage() {
             loading={actionLoading}
           />
 
-          {/* Back button and refresh */}
           <div className="flex items-center justify-between mb-6">
             <button
               onClick={() => router.back()}
@@ -400,7 +638,6 @@ export default function DoctorDetailPage() {
             </button>
           </div>
 
-          {/* Header */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
@@ -411,7 +648,7 @@ export default function DoctorDetailPage() {
                   <h1 className="text-2xl font-bold text-gray-900">{doctor.name}</h1>
                   <p className="text-sm text-gray-400">{doctor.specialty} · {doctor.city}</p>
                   <div className="flex items-center gap-2 mt-1">
-                    <StatusBadge isVerified={doctor.isVerified} />
+                    <StatusBadge isVerified={doctor.isVerified} isSuspended={doctor.isSuspended} status={doctor.status} />
                     <span className="text-xs text-gray-400">•</span>
                     <span className="text-xs text-gray-400">ID: {doctor._id?.slice(-8) || 'N/A'}</span>
                   </div>
@@ -421,39 +658,44 @@ export default function DoctorDetailPage() {
                 <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
                   <Edit className="w-5 h-5 text-gray-500" />
                 </button>
-                {doctor.isVerified ? (
+                {doctor.isVerified && !doctor.isSuspended ? (
+                  <button
+                    onClick={() => openActionModal('suspend')}
+                    disabled={actionLoading}
+                    className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50"
+                  >
+                    <UserX className="w-4 h-4" /> Suspend
+                  </button>
+                ) : doctor.isSuspended ? (
                   <>
                     <button
-                      onClick={() => openActionModal('suspend')}
-                      disabled={actionLoading}
-                      className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50"
-                    >
-                      <UserX className="w-4 h-4" /> Suspend
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => openActionModal('verify')}
+                      onClick={() => openActionModal('unsuspend')}
                       disabled={actionLoading}
                       className="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors disabled:opacity-50"
                     >
-                      <UserCheck className="w-4 h-4" /> Verify
+                      <UserCheck className="w-4 h-4" /> Unsuspend
                     </button>
                     <button
                       onClick={() => openActionModal('delete')}
                       disabled={actionLoading}
                       className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
                     >
-                      <Trash2 className="w-4 h-4" /> Reject
+                      <Trash2 className="w-4 h-4" /> Delete
                     </button>
                   </>
+                ) : (
+                  <button
+                    onClick={() => openActionModal('delete')}
+                    disabled={actionLoading}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                  >
+                    <Trash2 className="w-4 h-4" /> Delete
+                  </button>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Stats Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
               <div className="flex items-center gap-3">
@@ -503,9 +745,7 @@ export default function DoctorDetailPage() {
             </div>
           </div>
 
-          {/* Details Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Personal Information */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Personal Information</h2>
               <div className="space-y-3">
@@ -554,7 +794,6 @@ export default function DoctorDetailPage() {
               </div>
             </div>
 
-            {/* Professional Information */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Professional Information</h2>
               <div className="space-y-3">
@@ -605,7 +844,6 @@ export default function DoctorDetailPage() {
               </div>
             </div>
 
-            {/* About */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">About</h2>
               <p className="text-sm text-gray-600 leading-relaxed">
@@ -613,7 +851,14 @@ export default function DoctorDetailPage() {
               </p>
             </div>
 
-            {/* Education & Awards */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-emerald-500" />
+                Medical Certificate
+              </h2>
+              <CertificateViewer certificate={doctor.medicalCertificate} />
+            </div>
+
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Education & Awards</h2>
               <div className="space-y-4">
@@ -650,7 +895,6 @@ export default function DoctorDetailPage() {
               </div>
             </div>
 
-            {/* Conditions Treated */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:col-span-2">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Conditions Treated</h2>
               {doctor.conditions && doctor.conditions.length > 0 ? (
@@ -670,7 +914,6 @@ export default function DoctorDetailPage() {
               )}
             </div>
 
-            {/* Appointment Slots */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:col-span-2">
               <h2 className="text-lg font-bold text-gray-900 mb-4">Appointment Slots</h2>
               {doctor.appointmentSlots && doctor.appointmentSlots.length > 0 ? (

@@ -37,6 +37,8 @@ export async function GET(request) {
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 10;
 
+    console.log('Query params:', { search, specialty, status, page, limit });
+
     // Build query
     const query = {};
     
@@ -56,18 +58,28 @@ export async function GET(request) {
       query.specialty = specialty;
     }
 
-    // Status filter
+    // Status filter - FIXED to handle all status types
     if (status !== "All Status") {
-      if (status === 'verified' || status === 'approved') {
-        query.status = 'approved';
+      if (status === 'approved') {
+        query.isVerified = true;
+        query.isSuspended = false;
+        query.status = { $ne: 'rejected' };
       } else if (status === 'pending') {
-        query.status = 'pending';
+        query.isVerified = false;
+        query.isSuspended = false;
+        query.status = { $ne: 'rejected' };
       } else if (status === 'rejected') {
         query.status = 'rejected';
       } else if (status === 'suspended') {
-        query.status = 'suspended';
+        query.isSuspended = true;
+      } else if (status === 'verified') {
+        // Keep for backward compatibility
+        query.isVerified = true;
+        query.isSuspended = false;
       }
     }
+
+    console.log('MongoDB Query:', JSON.stringify(query, null, 2));
 
     // Get total count
     const total = await Doctor.countDocuments(query);
@@ -95,6 +107,16 @@ export async function GET(request) {
           ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews 
           : 0;
 
+        // Determine correct status
+        let doctorStatus = 'pending';
+        if (doctor.isSuspended) {
+          doctorStatus = 'suspended';
+        } else if (doctor.status === 'rejected') {
+          doctorStatus = 'rejected';
+        } else if (doctor.isVerified) {
+          doctorStatus = 'approved';
+        }
+
         return {
           id: doctor._id,
           name: doctor.name,
@@ -104,9 +126,10 @@ export async function GET(request) {
           rating: Math.round(avgRating * 10) / 10 || 0,
           reviews: totalReviews,
           joined: doctor.createdAt,
-          status: doctor.status || (doctor.isVerified ? 'approved' : 'pending'),
-          pending: doctor.status === 'pending',
+          status: doctorStatus,
+          pending: doctorStatus === 'pending',
           isVerified: doctor.isVerified,
+          isSuspended: doctor.isSuspended || false,
           email: doctor.email,
           phone: doctor.phone,
           hospital: doctor.hospital,
@@ -120,11 +143,31 @@ export async function GET(request) {
           awards: doctor.awards || [],
           appointmentSlots: doctor.appointmentSlots || [],
           plan: doctor.plan,
+          medicalCertificate: doctor.medicalCertificate ? {
+            url: doctor.medicalCertificate.url,
+            fileName: doctor.medicalCertificate.fileName,
+            fileType: doctor.medicalCertificate.fileType,
+            uploadedAt: doctor.medicalCertificate.uploadedAt,
+          } : null,
         };
       })
     );
 
     const totalPages = Math.ceil(total / limit);
+
+    // Get accurate stats
+    const approved = await Doctor.countDocuments({ 
+      isVerified: true, 
+      isSuspended: false,
+      status: { $ne: 'rejected' }
+    });
+    const pending = await Doctor.countDocuments({ 
+      isVerified: false, 
+      isSuspended: false,
+      status: { $ne: 'rejected' }
+    });
+    const rejected = await Doctor.countDocuments({ status: 'rejected' });
+    const suspended = await Doctor.countDocuments({ isSuspended: true });
 
     return NextResponse.json({
       success: true,
@@ -140,10 +183,10 @@ export async function GET(request) {
           status,
         },
         stats: {
-          approved: await Doctor.countDocuments({ status: 'approved' }),
-          pending: await Doctor.countDocuments({ status: 'pending' }),
-          rejected: await Doctor.countDocuments({ status: 'rejected' }),
-          suspended: await Doctor.countDocuments({ status: 'suspended' }),
+          approved,
+          pending,
+          rejected,
+          suspended,
         },
       },
     });
@@ -175,7 +218,7 @@ export async function POST(request) {
     await connectToDatabase();
 
     const body = await request.json();
-    const { action, doctorIds, reason } = body;
+    const { action, doctorIds, reason, note } = body;
 
     if (!action || !doctorIds || doctorIds.length === 0) {
       return NextResponse.json(
@@ -187,29 +230,41 @@ export async function POST(request) {
     let result;
 
     switch (action) {
+      case 'approve':
       case 'verify':
-        console.log('Verifying doctors:', doctorIds);
+        console.log('Approving/Verifying doctors:', doctorIds);
         result = await Doctor.updateMany(
           { _id: { $in: doctorIds } },
           { 
             isVerified: true,
+            isSuspended: false,
+            status: 'approved',
+            suspendedReason: null,
+            suspendedAt: null,
           }
         );
-        // Also update the associated user
         await User.updateMany(
-          { role: 'doctor', 'doctorId': { $in: doctorIds } },
-          { isVerified: true }
+          { 'doctorId': { $in: doctorIds } },
+          { 
+            isVerified: true,
+            isSuspended: false,
+            suspendedReason: null,
+            role: 'doctor'
+          }
         );
         break;
 
       case 'reject':
         console.log('Rejecting doctors:', doctorIds);
-        // Delete the doctor and associated user
-        const doctors = await Doctor.find({ _id: { $in: doctorIds } }).select('_id email').lean();
-        const doctorEmails = doctors.map(d => d.email);
-        
-        result = await Doctor.deleteMany({ _id: { $in: doctorIds } });
-        await User.deleteMany({ email: { $in: doctorEmails } });
+        result = await Doctor.updateMany(
+          { _id: { $in: doctorIds } },
+          { 
+            status: 'rejected',
+            rejectionReason: reason || 'Rejected by admin',
+            reviewedAt: new Date(),
+            isVerified: false,
+          }
+        );
         break;
 
       case 'suspend':
@@ -218,13 +273,19 @@ export async function POST(request) {
           { _id: { $in: doctorIds } },
           { 
             isVerified: false,
+            isSuspended: true,
+            status: 'suspended',
             suspendedReason: reason || 'Suspended by admin',
             suspendedAt: new Date(),
           }
         );
         await User.updateMany(
-          { role: 'doctor', 'doctorId': { $in: doctorIds } },
-          { isSuspended: true, suspendedReason: reason || 'Suspended by admin' }
+          { 'doctorId': { $in: doctorIds } },
+          { 
+            isSuspended: true, 
+            suspendedReason: reason || 'Suspended by admin',
+            isVerified: false,
+          }
         );
         break;
 
@@ -234,14 +295,29 @@ export async function POST(request) {
           { _id: { $in: doctorIds } },
           { 
             isVerified: true,
+            isSuspended: false,
+            status: 'approved',
             suspendedReason: null,
             suspendedAt: null,
           }
         );
         await User.updateMany(
-          { role: 'doctor', 'doctorId': { $in: doctorIds } },
-          { isSuspended: false, suspendedReason: null }
+          { 'doctorId': { $in: doctorIds } },
+          { 
+            isSuspended: false, 
+            suspendedReason: null,
+            isVerified: true,
+          }
         );
+        break;
+
+      case 'delete':
+        console.log('Deleting doctors:', doctorIds);
+        const doctors = await Doctor.find({ _id: { $in: doctorIds } }).select('_id email').lean();
+        const doctorEmails = doctors.map(d => d.email);
+        
+        result = await Doctor.deleteMany({ _id: { $in: doctorIds } });
+        await User.deleteMany({ email: { $in: doctorEmails } });
         break;
 
       default:

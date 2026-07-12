@@ -19,12 +19,21 @@ export async function POST(request) {
       city,
       consultFee,
       password,
+      medicalCertificate, // New field
     } = await request.json();
 
     // Validate required fields
     if (!name || !email || !phone || !specialty || !medicalRegNo || !password) {
       return NextResponse.json(
         { error: "Please fill in all required fields" },
+        { status: 400 }
+      );
+    }
+
+    // Validate medical certificate
+    if (!medicalCertificate || !medicalCertificate.url) {
+      return NextResponse.json(
+        { error: "Please upload your medical practitioner certificate" },
         { status: 400 }
       );
     }
@@ -62,6 +71,13 @@ export async function POST(request) {
       city: city || "",
       consultationFee: consultFee || 0,
       password: hashedPassword,
+      medicalCertificate: {
+        url: medicalCertificate.url,
+        publicId: medicalCertificate.publicId,
+        fileName: medicalCertificate.fileName,
+        fileType: medicalCertificate.fileType,
+        uploadedAt: new Date(),
+      },
       status: "pending",
       isVerified: false,
     });
