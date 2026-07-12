@@ -21,12 +21,12 @@ import {
   Download,
   Info,
   Check,
-  RefreshCw,
   Heart,
   ChevronLeft
 } from 'lucide-react';
 import Sidebar from './Sidebar';
 import toast, { Toaster } from 'react-hot-toast';
+import { INDIAN_MEDICINE_TIMINGS } from '@/lib/medicineTimings';
 
 export default function MedicineTracker() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -72,6 +72,7 @@ export default function MedicineTracker() {
     afternoon: false,
     evening: false,
     night: false,
+    timingOptions: [],
     customTime: '',
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -244,6 +245,7 @@ export default function MedicineTracker() {
       afternoon: false,
       evening: false,
       night: false,
+      timingOptions: [],
       customTime: '',
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -276,7 +278,8 @@ export default function MedicineTracker() {
       afternoon: reminder.afternoon,
       evening: reminder.evening,
       night: reminder.night,
-      customTime: reminder.customTime || '',
+      timingOptions: reminder.timingOptions || [],
+      customTime: reminder.customTime,
       startDate: new Date(reminder.startDate).toISOString().split('T')[0],
       endDate: new Date(reminder.endDate).toISOString().split('T')[0],
       reminderTime: formattedTime,
@@ -337,6 +340,7 @@ export default function MedicineTracker() {
         afternoon: false,
         evening: false,
         night: false,
+        timingOptions: [],
         customTime: '',
         startDate: new Date().toISOString().split('T')[0],
         endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -1032,18 +1036,22 @@ export default function MedicineTracker() {
 
               <div>
                 <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-3">Daily Schedules</label>
-                <div className="flex flex-wrap gap-4">
-                  {['Morning', 'Afternoon', 'Evening', 'Night'].map((shift) => {
-                    const key = shift.toLowerCase();
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {INDIAN_MEDICINE_TIMINGS.map((option) => {
                     return (
-                      <label key={shift} className="flex items-center gap-2.5 text-sm text-[#111827] font-semibold cursor-pointer select-none">
+                      <label key={option.id} className="flex items-center gap-2.5 text-sm text-[#111827] font-semibold cursor-pointer select-none">
                         <input
                           type="checkbox"
-                          checked={formData[key]}
-                          onChange={(e) => setFormData({ ...formData, [key]: e.target.checked })}
+                          checked={formData.timingOptions.includes(option.id)}
+                          onChange={(e) => {
+                            const newTimings = e.target.checked 
+                              ? [...formData.timingOptions, option.id]
+                              : formData.timingOptions.filter(t => t !== option.id);
+                            setFormData({ ...formData, timingOptions: newTimings });
+                          }}
                           className="w-4.5 h-4.5 accent-blue-600 rounded cursor-pointer"
                         />
-                        {shift}
+                        {option.label}
                       </label>
                     );
                   })}

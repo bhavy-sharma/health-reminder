@@ -429,7 +429,7 @@ export default function FindDoctorsPage() {
                         )}
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-lg font-bold text-gray-900">₹{doc.fee}</p>
+                        <p className="text-lg font-bold text-gray-900">₹{doc.consultationFee}</p>
                         <p className="text-xs text-gray-400">per visit</p>
                       </div>
                     </div>
@@ -439,7 +439,7 @@ export default function FindDoctorsPage() {
                 {/* Mobile fee */}
                 <div className="md:hidden flex justify-end mt-2">
                   <div className="text-right">
-                    <p className="text-lg font-bold text-gray-900">₹{doc.fee}</p>
+                    <p className="text-lg font-bold text-gray-900">₹{doc.consultationFee}</p>
                     <p className="text-xs text-gray-400">per visit</p>
                   </div>
                 </div>
@@ -482,12 +482,20 @@ export default function FindDoctorsPage() {
                       </span>
                     ))}
                   </div>
-                  <Link
-                    href={`/find-doctors/${doc.id}`}
-                    className="text-sm font-medium text-[#0D1B2A] hover:text-[#1a2e44] transition-colors flex items-center gap-1"
-                  >
-                    View Profile →
-                  </Link>
+                  <div className="flex items-center gap-4 w-full sm:w-auto mt-2 sm:mt-0">
+                    <Link
+                      href={`/find-doctors/${doc.id}`}
+                      className="text-sm font-medium text-gray-600 hover:text-[#0D1B2A] transition-colors flex items-center gap-1"
+                    >
+                      View Profile
+                    </Link>
+                    <Link
+                      href={`/find-doctors/${doc.id}`}
+                      className="flex-1 sm:flex-none text-center bg-[#0D1B2A] hover:bg-[#1a2e44] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm"
+                    >
+                      Book Appointment
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}

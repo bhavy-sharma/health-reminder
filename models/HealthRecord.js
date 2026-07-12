@@ -40,6 +40,12 @@ const HealthRecordSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    doctorName: {
+      type: String,
+    },
+    hospitalName: {
+      type: String,
+    },
     notes: {
       type: String,
     },

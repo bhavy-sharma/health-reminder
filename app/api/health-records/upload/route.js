@@ -67,6 +67,8 @@ export async function POST(request) {
     const documentName = formData.get("documentName");
     const documentType = formData.get("documentType");
     const documentDate = formData.get("documentDate");
+    const doctorName = formData.get("doctorName") || "";
+    const hospitalName = formData.get("hospitalName") || "";
     const notes = formData.get("notes") || "";
 
     // Validate required fields
@@ -176,6 +178,8 @@ export async function POST(request) {
       fileSizeKB: Math.round(file.size / 1024),
       mimeType: file.type,
       documentDate: documentDate ? new Date(documentDate) : new Date(),
+      doctorName,
+      hospitalName,
       notes,
       uploadedBy: user._id,
     });

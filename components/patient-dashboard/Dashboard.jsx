@@ -29,6 +29,8 @@ import Sidebar from './Sidebar';
 export default function Dashboard() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [familyMembers, setFamilyMembers] = useState([]);
+  const [recentRecords, setRecentRecords] = useState([]);
   const [stats, setStats] = useState({
     membersCount: 0,
     recordsCount: 0,
@@ -65,6 +67,8 @@ export default function Dashboard() {
                 recordsList = recData.records || [];
               }
 
+              setFamilyMembers(membersList);
+              setRecentRecords(recordsList);
               setStats({
                 membersCount: membersList.length,
                 recordsCount: recordsList.length,
@@ -387,13 +391,28 @@ export default function Dashboard() {
                     </Link>
                   </div>
                 ) : (
-                  <div className="p-6 bg-blue-50/40 rounded-xl border border-blue-100 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <UserCheck className="w-8 h-8 text-blue-600" />
-                      <div>
-                        <p className="text-sm font-bold text-[#111827]">Family setup configured correctly</p>
-                        <p className="text-xs text-[#475569] mt-0.5">You have active profiles configured on this account.</p>
+                  <div className="space-y-4">
+                    <div className="p-4 bg-blue-50/40 rounded-xl border border-blue-100 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <UserCheck className="w-8 h-8 text-blue-600" />
+                        <div>
+                          <p className="text-sm font-bold text-[#111827]">Family setup configured correctly</p>
+                          <p className="text-xs text-[#475569] mt-0.5">You have {stats.membersCount} active profiles configured on this account.</p>
+                        </div>
                       </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+                      {familyMembers.slice(0, 3).map((member, idx) => (
+                        <div key={idx} className="flex items-center gap-3 p-3 bg-white border border-[#E2E8F0] rounded-lg shadow-sm">
+                          <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-700 font-bold shrink-0">
+                            {member.name?.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-[#111827] truncate">{member.name}</p>
+                            <p className="text-xs text-[#475569] capitalize truncate">{member.relationship}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -482,17 +501,55 @@ export default function Dashboard() {
                     View All <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
-                <div className="flex flex-col items-center justify-center py-8 text-center border border-dashed border-[#E2E8F0] rounded-xl bg-slate-50/50 p-4">
-                  <FileText className="w-10 h-10 mb-2.5 text-[#475569]/30" />
-                  <p className="text-xs font-bold text-[#111827]">No records uploaded yet</p>
-                  <p className="text-[10px] text-[#475569] mt-0.5">Upload visit summaries & reports.</p>
-                  <Link
-                    href="/health-records"
-                    className="mt-4 px-4 py-2 bg-[#0B1F4D] hover:bg-[#071433] text-white text-[11px] font-bold rounded-lg transition"
-                  >
-                    Upload Record
-                  </Link>
-                </div>
+                {recentRecords.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center border border-dashed border-[#E2E8F0] rounded-xl bg-slate-50/50 p-4">
+                    <FileText className="w-10 h-10 mb-2.5 text-[#475569]/30" />
+                    <p className="text-xs font-bold text-[#111827]">No records uploaded yet</p>
+                    <p className="text-[10px] text-[#475569] mt-0.5">Upload visit summaries & reports.</p>
+                    <Link
+                      href="/health-records"
+                      className="mt-4 px-4 py-2 bg-[#0B1F4D] hover:bg-[#071433] text-white text-[11px] font-bold rounded-lg transition"
+                    >
+                      Upload Record
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {recentRecords.slice(0, 3).map((record, index) => {
+                      const iconStyles = (() => {
+                        switch (record.type) {
+                          case 'lab': return { bg: 'bg-red-50', text: 'text-red-500' };
+                          case 'prescription': return { bg: 'bg-blue-50', text: 'text-blue-500' };
+                          case 'scan': return { bg: 'bg-purple-50', text: 'text-purple-500' };
+                          default: return { bg: 'bg-slate-50', text: 'text-slate-500' };
+                        }
+                      })();
+                      
+                      return (
+                        <div key={index} className="flex flex-col p-3 bg-white border border-[#E2E8F0] rounded-xl shadow-sm">
+                          <div className="flex items-start gap-3">
+                            <div className={`w-10 h-10 rounded-lg ${iconStyles.bg} flex items-center justify-center shrink-0`}>
+                              <FileText className={`w-5 h-5 ${iconStyles.text}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[10px] text-[#475569] mb-0.5">{record.category || 'Record'}</p>
+                              <p className="text-sm font-bold text-[#111827] truncate leading-tight">{record.title || 'Untitled Document'}</p>
+                              <p className="text-[10px] text-[#475569] mt-1">{record.member} • {record.date}</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 mt-3">
+                            <Link href={`/health-records?view=${record.id}`} className="flex-1 py-1.5 bg-white border border-[#E2E8F0] text-[#111827] text-[11px] font-bold rounded-lg hover:bg-slate-50 transition text-center">
+                              View
+                            </Link>
+                            <button className="flex-1 py-1.5 bg-[#0B1F4D] text-white text-[11px] font-bold rounded-lg hover:bg-[#071433] transition text-center">
+                              Share
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
             </div>

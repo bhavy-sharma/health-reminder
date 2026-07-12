@@ -5,6 +5,8 @@ import { validateUserRole } from "@/lib/auth";
 import Doctor from "@/models/Doctor";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
+import { sendEmail } from "@/lib/email";
+import { getDoctorApprovalEmailTemplate, getDoctorRejectionEmailTemplate } from "@/lib/emailTemplates";
 
 export async function POST(request) {
   try {
@@ -135,6 +137,31 @@ export async function POST(request) {
       
       if (updatedDoctor) {
         updatedDoctors.push(updatedDoctor);
+
+        // Trigger automatic email notifications based on action
+        const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login`;
+        if (action === 'approve') {
+          const htmlContent = getDoctorApprovalEmailTemplate({
+            name: updatedDoctor.name,
+            loginUrl
+          });
+          sendEmail({
+            to: updatedDoctor.email,
+            subject: "Your Family Health Doctor Profile Has Been Approved",
+            html: htmlContent
+          }).catch(err => console.error("[EMAIL ERROR] Non-blocking approval email failed:", err));
+        } else if (action === 'reject') {
+          const htmlContent = getDoctorRejectionEmailTemplate({
+            name: updatedDoctor.name,
+            reason: reason || note,
+            profileUrl: loginUrl
+          });
+          sendEmail({
+            to: updatedDoctor.email,
+            subject: "Your Family Health Doctor Profile Requires Attention",
+            html: htmlContent
+          }).catch(err => console.error("[EMAIL ERROR] Non-blocking rejection email failed:", err));
+        }
       }
     }
 

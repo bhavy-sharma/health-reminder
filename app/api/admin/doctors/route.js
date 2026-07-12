@@ -58,10 +58,14 @@ export async function GET(request) {
 
     // Status filter
     if (status !== "All Status") {
-      if (status === 'verified') {
-        query.isVerified = true;
+      if (status === 'verified' || status === 'approved') {
+        query.status = 'approved';
       } else if (status === 'pending') {
-        query.isVerified = false;
+        query.status = 'pending';
+      } else if (status === 'rejected') {
+        query.status = 'rejected';
+      } else if (status === 'suspended') {
+        query.status = 'suspended';
       }
     }
 
@@ -100,8 +104,8 @@ export async function GET(request) {
           rating: Math.round(avgRating * 10) / 10 || 0,
           reviews: totalReviews,
           joined: doctor.createdAt,
-          status: doctor.isVerified ? 'verified' : 'pending',
-          pending: !doctor.isVerified,
+          status: doctor.status || (doctor.isVerified ? 'approved' : 'pending'),
+          pending: doctor.status === 'pending',
           isVerified: doctor.isVerified,
           email: doctor.email,
           phone: doctor.phone,
@@ -136,8 +140,10 @@ export async function GET(request) {
           status,
         },
         stats: {
-          verified: await Doctor.countDocuments({ isVerified: true }),
-          pending: await Doctor.countDocuments({ isVerified: false }),
+          approved: await Doctor.countDocuments({ status: 'approved' }),
+          pending: await Doctor.countDocuments({ status: 'pending' }),
+          rejected: await Doctor.countDocuments({ status: 'rejected' }),
+          suspended: await Doctor.countDocuments({ status: 'suspended' }),
         },
       },
     });
