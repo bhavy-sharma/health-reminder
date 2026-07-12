@@ -180,8 +180,7 @@ export async function POST(request) {
       reminderTime,
       responseWindowMinutes,
       messageTemplate,
-      repeatType,
-      timingOptions
+      repeatType
     } = body;
 
     if (!familyId || !memberId || !medicineName || !dosage || !startDate || !endDate || !reminderTime) {
@@ -236,7 +235,6 @@ export async function POST(request) {
       responseWindowMinutes: parseInt(responseWindowMinutes) || 10,
       messageTemplate: messageTemplate || `Hello {name}, this is your reminder to take {dosage} of {medicine}.`,
       repeatType: repeatType || "Daily",
-      timingOptions: Array.isArray(timingOptions) ? timingOptions : [],
       isActive: true
     });
 
