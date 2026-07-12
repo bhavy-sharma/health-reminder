@@ -10,32 +10,27 @@ import Appointment from "@/models/Appointment";
 export async function GET(request, context) {
   try {
     console.log('===== DOCTOR DETAIL API =====');
-    console.log('Request URL:', request.url);
-    console.log('Context:', context);
     
-    // Get the ID from context.params
     const params = await context.params;
     const id = params?.id;
     
-    console.log('Extracted ID:', id);
+    console.log('Doctor ID:', id);
     
     if (!id) {
-      console.log('No ID provided - params:', params);
       return NextResponse.json(
         { error: "Doctor ID is required" },
         { status: 400 }
       );
     }
 
-    // Validate user role - ADMIN or STAFF only
+    // Validate user role
     const authResult = await validateUserRole(request, ['admin', 'staff']);
     
     if (!authResult.valid) {
       return NextResponse.json(
         { 
           error: authResult.error || 'Authentication failed',
-          message: authResult.reason || authResult.error,
-          status: authResult.status 
+          status: authResult.status || 401 
         },
         { status: authResult.status || 401 }
       );
@@ -43,18 +38,22 @@ export async function GET(request, context) {
 
     await connectToDatabase();
 
-    // Get doctor
+    // Get doctor - use lean() for plain object
     const doctor = await Doctor.findById(id).lean();
     
     if (!doctor) {
-      console.log('Doctor not found:', id);
       return NextResponse.json(
         { error: "Doctor not found" },
         { status: 404 }
       );
     }
 
-    console.log('Doctor found:', doctor.name);
+    console.log('Doctor found:', {
+      id: doctor._id,
+      name: doctor.name,
+      hasCertificate: !!doctor.medicalCertificate,
+      certificateData: doctor.medicalCertificate
+    });
 
     // Get associated user
     const user = await User.findOne({ 
@@ -87,8 +86,17 @@ export async function GET(request, context) {
       ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews 
       : 0;
 
+    // Format the doctor data with explicit certificate handling
     const doctorData = {
       ...doctor,
+      // Ensure medicalCertificate is properly formatted
+      medicalCertificate: doctor.medicalCertificate ? {
+        url: doctor.medicalCertificate.url || null,
+        publicId: doctor.medicalCertificate.publicId || null,
+        fileName: doctor.medicalCertificate.fileName || null,
+        fileType: doctor.medicalCertificate.fileType || null,
+        uploadedAt: doctor.medicalCertificate.uploadedAt || null,
+      } : null,
       user,
       reviews,
       stats: {
@@ -99,6 +107,8 @@ export async function GET(request, context) {
         reviewCount: totalReviews,
       }
     };
+
+    console.log('Response data - certificate:', doctorData.medicalCertificate);
 
     return NextResponse.json({
       success: true,
@@ -185,10 +195,22 @@ export async function PUT(request, context) {
       { new: true }
     ).lean();
 
+    // Include medical certificate in response
+    const responseData = {
+      ...updatedDoctor,
+      medicalCertificate: updatedDoctor.medicalCertificate ? {
+        url: updatedDoctor.medicalCertificate.url,
+        publicId: updatedDoctor.medicalCertificate.publicId,
+        fileName: updatedDoctor.medicalCertificate.fileName,
+        fileType: updatedDoctor.medicalCertificate.fileType,
+        uploadedAt: updatedDoctor.medicalCertificate.uploadedAt,
+      } : null,
+    };
+
     return NextResponse.json({
       success: true,
       message: "Doctor updated successfully",
-      data: updatedDoctor,
+      data: responseData,
     });
   } catch (error) {
     console.error("Error updating doctor:", error);

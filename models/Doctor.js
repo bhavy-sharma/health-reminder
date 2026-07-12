@@ -34,6 +34,29 @@ const DoctorSchema = new mongoose.Schema(
       required: [true, "Medical registration number is required"],
       trim: true,
     },
+    // NEW: Medical Certificate Field
+    medicalCertificate: {
+      url: {
+        type: String,
+        required: [true, "Medical certificate is required"],
+      },
+      publicId: {
+        type: String,
+        required: true,
+      },
+      fileName: {
+        type: String,
+        required: true,
+      },
+      fileType: {
+        type: String,
+        required: true,
+      },
+      uploadedAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
     experience: {
       type: Number,
       default: 0,
@@ -78,7 +101,6 @@ const DoctorSchema = new mongoose.Schema(
         trim: true,
       },
     },
-    // Keep the old city field for backward compatibility
     city: {
       type: String,
       trim: true,
@@ -170,7 +192,6 @@ const DoctorSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    // models/Doctor.js - already has these fields
     plan: {
       type: {
         type: String,
