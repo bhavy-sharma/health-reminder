@@ -12,6 +12,8 @@ import {
   Menu,
   X,
   Loader2,
+  MessageCircle,
+  HelpCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -27,6 +29,9 @@ const adminNav = {
   ],
   business: [
     { key: 'reviews', label: 'Reviews', icon: Star, href: '/admin/reviews' },
+  ],
+  support: [
+    { key: 'queries', label: 'Doctor Queries', icon: MessageCircle, href: '/admin/queries' },
   ],
 };
 
@@ -44,6 +49,7 @@ export default function AdminSidebar({ active, setActive, isMobileOpen, setIsMob
     pendingDoctors: 0,
     flaggedReviews: 0,
     totalPatients: 0,
+    openQueries: 0,
   });
 
   const getActiveFromPath = () => {
@@ -52,6 +58,7 @@ export default function AdminSidebar({ active, setActive, isMobileOpen, setIsMob
     if (pathname?.includes('/admin/patients')) return 'patients';
     if (pathname?.includes('/admin/doctors')) return 'doctors';
     if (pathname?.includes('/admin/reviews')) return 'reviews';
+    if (pathname?.includes('/admin/queries')) return 'queries';
     return active || 'overview';
   };
 
@@ -111,6 +118,17 @@ export default function AdminSidebar({ active, setActive, isMobileOpen, setIsMob
           setStats(prev => ({ ...prev, totalPatients: patientsData.data.total || 0 }));
         }
       }
+
+      // ─── Fetch open queries count ───
+      const queriesRes = await fetch('/api/admin/queries?status=open,in_progress&limit=1');
+      if (queriesRes.ok) {
+        const queriesData = await queriesRes.json();
+        if (queriesData.success) {
+          const openCount = queriesData.data.counts?.open || 0;
+          const inProgressCount = queriesData.data.counts?.in_progress || 0;
+          setStats(prev => ({ ...prev, openQueries: openCount + inProgressCount }));
+        }
+      }
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -125,22 +143,17 @@ export default function AdminSidebar({ active, setActive, isMobileOpen, setIsMob
       });
 
       if (response.ok) {
-        // Clear any client-side storage
         localStorage.removeItem('token');
         sessionStorage.clear();
-        
-        // Redirect to login
         router.push('/login');
         router.refresh();
       } else {
         const data = await response.json();
         console.error('Logout failed:', data.error);
-        // Still redirect to login even if logout fails
         router.push('/login');
       }
     } catch (error) {
       console.error('Logout error:', error);
-      // Still redirect to login even if there's an error
       router.push('/login');
     } finally {
       setLoggingOut(false);
@@ -162,6 +175,8 @@ export default function AdminSidebar({ active, setActive, isMobileOpen, setIsMob
         return 'bg-red-100 text-red-600';
       case 'patients':
         return 'bg-blue-100 text-blue-600';
+      case 'queries':
+        return 'bg-amber-100 text-amber-700';
       default:
         return 'bg-gray-100 text-gray-600';
     }
@@ -203,6 +218,12 @@ export default function AdminSidebar({ active, setActive, isMobileOpen, setIsMob
                 ? `${stats.flaggedReviews} flagged` 
                 : undefined,
               badgeColor: item.key === 'reviews' ? getBadgeColor('flagged') : undefined,
+            }))},
+          // ─── Support Section ───
+          { title: 'Support', items: adminNav.support.map(item => ({
+              ...item,
+              badge: stats.openQueries > 0 ? `${stats.openQueries}` : undefined,
+              badgeColor: stats.openQueries > 0 ? getBadgeColor('queries') : undefined,
             }))},
         ].map(({ title, items }) => (
           <div key={title}>

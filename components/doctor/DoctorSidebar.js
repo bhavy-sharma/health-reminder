@@ -3,7 +3,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutGrid, Calendar, Star, User, CreditCard, LogOut, ArrowLeft, Loader2 } from "lucide-react";
+import { 
+  LayoutGrid, Calendar, Star, User, CreditCard, LogOut, ArrowLeft, 
+  Loader2, MessageCircle, HelpCircle 
+} from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function DoctorSidebar() {
@@ -12,9 +15,11 @@ export default function DoctorSidebar() {
   const [doctorData, setDoctorData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [pendingQueriesCount, setPendingQueriesCount] = useState(0);
 
   useEffect(() => {
     fetchDoctorData();
+    fetchPendingQueriesCount();
   }, []);
 
   const fetchDoctorData = async () => {
@@ -29,6 +34,19 @@ export default function DoctorSidebar() {
       console.error('Error fetching doctor data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPendingQueriesCount = async () => {
+    try {
+      const response = await fetch('/api/doctor/queries?status=open,in_progress&limit=1');
+      const result = await response.json();
+      
+      if (result.success) {
+        setPendingQueriesCount(result.data.total || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching queries count:', error);
     }
   };
 
@@ -68,6 +86,21 @@ export default function DoctorSidebar() {
     { name: "Plans & Billing", href: "/doctor/plans", icon: CreditCard },
   ];
 
+  // ─── New Support/Query section ───
+  const supportItems = [
+    { 
+      name: "Raise Query", 
+      href: "/doctor/raise-query", 
+      icon: HelpCircle 
+    },
+    { 
+      name: "My Queries", 
+      href: "/doctor/queries", 
+      icon: MessageCircle,
+      badge: pendingQueriesCount > 0 ? pendingQueriesCount : null
+    },
+  ];
+
   return (
     <aside className="w-64 h-screen bg-[var(--color-doctor-sidebar)] text-white fixed left-0 top-0 flex flex-col border-r border-white/5 z-50">
       {/* Logo */}
@@ -104,8 +137,43 @@ export default function DoctorSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+        {/* Main Nav Items */}
         {navItems.map((item) => {
           const isActive = pathname === item.href || (pathname?.startsWith(item.href) && item.href !== '/doctor');
+          const Icon = item.icon;
+          
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium
+                ${isActive 
+                  ? "bg-[var(--color-doctor-sidebar-active)] text-white" 
+                  : "text-[var(--color-doctor-sidebar-text)] hover:bg-white/5 hover:text-white"
+                }`}
+            >
+              <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+              <span className="flex-1">{item.name}</span>
+              {item.badge && (
+                <span className="bg-[var(--color-pulse-red)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {item.badge}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+
+        {/* ─── Divider ─── */}
+        <div className="my-4 border-t border-white/10" />
+
+        {/* ─── Support Section Title ─── */}
+        <div className="px-4 py-2">
+          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Support</p>
+        </div>
+
+        {/* ─── Support Nav Items ─── */}
+        {supportItems.map((item) => {
+          const isActive = pathname === item.href || pathname?.startsWith(item.href);
           const Icon = item.icon;
           
           return (
