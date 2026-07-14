@@ -167,7 +167,7 @@ export default function FeaturesSection() {
   ];
 
   return (
-    <section className="bg-[#FAF8F5] py-20 px-8">
+    <section id="features" className="bg-[#FAF8F5] py-20 px-8">
       <div className="max-w-6xl mx-auto">
         {/* Section Header */}
         <div className="text-center mb-16">

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function HowItWorksSection() {
   const steps = [
     {
@@ -28,7 +30,7 @@ export default function HowItWorksSection() {
   ];
 
   return (
-    <section className="bg-white py-20 px-8">
+    <section id="how-it-works" className="bg-white py-20 px-8">
       <div className="max-w-4xl mx-auto">
         {/* Section Header */}
         <h2 className="text-4xl md:text-5xl font-serif font-bold text-gray-900 text-center mb-16">
@@ -89,7 +91,7 @@ export default function HowItWorksSection() {
 
         {/* CTA Button */}
         <div className="text-center mt-12">
-          <button className="bg-gray-900 text-white px-8 py-4 rounded-lg text-base font-medium hover:bg-gray-800 transition-colors inline-flex items-center gap-2">
+          <Link href="/login" className="bg-gray-900 text-white px-8 py-4 rounded-lg text-base font-medium hover:bg-gray-800 transition-colors inline-flex items-center gap-2">
             Start your family health record now
             <svg
               className="w-5 h-5"
@@ -104,7 +106,7 @@ export default function HowItWorksSection() {
                 d="M17 8l4 4m0 0l-4 4m4-4H3"
               />
             </svg>
-          </button>
+          </Link>
         </div>
       </div>
     </section>

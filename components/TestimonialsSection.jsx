@@ -1,4 +1,31 @@
-export default function TestimonialsSection() {
+import { connectToDatabase } from '@/lib/db';
+import Settings from '@/models/Settings';
+import { getAverageRating, getResponseRate, getAppointmentsToday } from '@/lib/healthStats';
+
+export default async function TestimonialsSection() {
+  await connectToDatabase();
+  const settings = await Settings.findOne();
+  const showPlatformHealth = settings?.homepage?.showPlatformHealth;
+
+  let healthStats = [];
+  if (showPlatformHealth) {
+    const [
+      avgRating,
+      responseRate,
+      appointmentsToday,
+    ] = await Promise.all([
+      getAverageRating(),
+      getResponseRate(),
+      getAppointmentsToday(),
+    ]);
+
+    healthStats = [
+      { value: `${avgRating.toFixed(1)} ★`, label: "Avg Doctor Rating" },
+      { value: `${responseRate}%`, label: "Review Response Rate" },
+      { value: appointmentsToday >= 1000 ? (appointmentsToday / 1000).toFixed(1) + 'k' : appointmentsToday.toString(), label: "Appointments Today" },
+    ];
+  }
+
   const testimonials = [
     {
       stars: 5,
@@ -21,13 +48,6 @@ export default function TestimonialsSection() {
       author: "Anjali Patel",
       location: "Delhi",
     },
-  ];
-
-  const stats = [
-    { value: "97%", label: "Medicine compliance rate" },
-    { value: "4hrs", label: "Average time saved per emergency" },
-    { value: "300M+", label: "Documents stored safely" },
-    { value: "₹10", label: "Per day for whole family" },
   ];
 
   return (
@@ -67,16 +87,18 @@ export default function TestimonialsSection() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-          {stats.map((stat, index) => (
-            <div key={index} className="text-center">
-              <p className="text-4xl md:text-5xl font-serif font-bold text-gray-900 mb-2">
-                {stat.value}
-              </p>
-              <p className="text-gray-500 text-sm">{stat.label}</p>
-            </div>
-          ))}
-        </div>
+        {showPlatformHealth && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {healthStats.map((stat, index) => (
+              <div key={index} className="text-center">
+                <p className="text-4xl md:text-5xl font-serif font-bold text-gray-900 mb-2">
+                  {stat.value}
+                </p>
+                <p className="text-gray-500 text-sm">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

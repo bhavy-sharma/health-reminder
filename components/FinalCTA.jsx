@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function FinalCTA() {
   return (
     <section className="bg-[#F5F3EF] py-20 px-8">
@@ -8,9 +10,9 @@ export default function FinalCTA() {
         </h2>
 
         {/* CTA Button */}
-        <button className="bg-gray-900 text-white px-8 py-4 rounded-lg text-base font-medium hover:bg-gray-800 transition-colors inline-block mb-4">
+        <Link href="/login" className="bg-gray-900 text-white px-8 py-4 rounded-lg text-base font-medium hover:bg-gray-800 transition-colors inline-block mb-4">
           Start organizing your family&apos;s health — free
-        </button>
+        </Link>
 
         {/* Subtext */}
         <p className="text-gray-500 text-sm">

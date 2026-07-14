@@ -26,6 +26,7 @@ import {
   ChevronLeft
 } from 'lucide-react';
 import Sidebar from './Sidebar';
+import { INDIAN_MEDICINE_TIMINGS } from '@/lib/medicineTimings';
 import toast, { Toaster } from 'react-hot-toast';
 
 export default function MedicineTracker() {
@@ -67,11 +68,17 @@ export default function MedicineTracker() {
     medicineName: '',
     medicineType: 'Tablet',
     dosage: '',
-    foodRelation: 'After Food',
+    foodRelation: 'after_food',
     morning: false,
     afternoon: false,
     evening: false,
     night: false,
+    empty_stomach: false,
+    after_breakfast: false,
+    after_lunch: false,
+    before_dinner: false,
+    after_dinner: false,
+    before_bed: false,
     customTime: '',
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -239,11 +246,17 @@ export default function MedicineTracker() {
       medicineName: '',
       medicineType: 'Tablet',
       dosage: '',
-      foodRelation: 'After Food',
+      foodRelation: 'after_food',
       morning: false,
       afternoon: false,
       evening: false,
       night: false,
+      empty_stomach: false,
+      after_breakfast: false,
+      after_lunch: false,
+      before_dinner: false,
+      after_dinner: false,
+      before_bed: false,
       customTime: '',
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -272,10 +285,16 @@ export default function MedicineTracker() {
       medicineType: reminder.medicineType,
       dosage: reminder.dosage,
       foodRelation: reminder.foodRelation,
-      morning: reminder.morning,
-      afternoon: reminder.afternoon,
-      evening: reminder.evening,
-      night: reminder.night,
+      morning: reminder.morning || false,
+      afternoon: reminder.afternoon || false,
+      evening: reminder.evening || false,
+      night: reminder.night || false,
+      empty_stomach: reminder.empty_stomach || false,
+      after_breakfast: reminder.after_breakfast || false,
+      after_lunch: reminder.after_lunch || false,
+      before_dinner: reminder.before_dinner || false,
+      after_dinner: reminder.after_dinner || false,
+      before_bed: reminder.before_bed || false,
       customTime: reminder.customTime || '',
       startDate: new Date(reminder.startDate).toISOString().split('T')[0],
       endDate: new Date(reminder.endDate).toISOString().split('T')[0],
@@ -332,11 +351,17 @@ export default function MedicineTracker() {
         medicineName: '',
         medicineType: 'Tablet',
         dosage: '',
-        foodRelation: 'After Food',
+        foodRelation: 'after_food',
         morning: false,
         afternoon: false,
         evening: false,
         night: false,
+        empty_stomach: false,
+        after_breakfast: false,
+        after_lunch: false,
+        before_dinner: false,
+        after_dinner: false,
+        before_bed: false,
         customTime: '',
         startDate: new Date().toISOString().split('T')[0],
         endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -957,10 +982,15 @@ export default function MedicineTracker() {
                     onChange={(e) => setFormData({ ...formData, foodRelation: e.target.value })}
                     className="w-full px-4 py-3 border border-[#E2E8F0] rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-[#111827]"
                   >
-                    <option value="After Food">After Food</option>
-                    <option value="Before Food">Before Food</option>
-                    <option value="With Food">With Food</option>
-                    <option value="No Relation">No Relation</option>
+                    <option value="empty_stomach">सुबह खाली पेट (Empty Stomach)</option>
+                    <option value="before_food">खाने से पहले (Before Food)</option>
+                    <option value="with_food">खाने के साथ (With Food)</option>
+                    <option value="after_food">खाने के बाद (After Food)</option>
+                    <option value="no_relation">कोई संबंध नहीं (No Relation)</option>
+                    <option value="After Food" style={{display: 'none'}}>After Food</option>
+                    <option value="Before Food" style={{display: 'none'}}>Before Food</option>
+                    <option value="With Food" style={{display: 'none'}}>With Food</option>
+                    <option value="No Relation" style={{display: 'none'}}>No Relation</option>
                   </select>
                 </div>
 
@@ -1033,17 +1063,17 @@ export default function MedicineTracker() {
               <div>
                 <label className="block text-xs font-bold text-[#475569] uppercase tracking-wider mb-3">Daily Schedules</label>
                 <div className="flex flex-wrap gap-4">
-                  {['Morning', 'Afternoon', 'Evening', 'Night'].map((shift) => {
-                    const key = shift.toLowerCase();
+                  {INDIAN_MEDICINE_TIMINGS.map((shift) => {
+                    const key = shift.id;
                     return (
-                      <label key={shift} className="flex items-center gap-2.5 text-sm text-[#111827] font-semibold cursor-pointer select-none">
+                      <label key={key} className="flex items-center gap-2.5 text-sm text-[#111827] font-semibold cursor-pointer select-none">
                         <input
                           type="checkbox"
-                          checked={formData[key]}
+                          checked={formData[key] || false}
                           onChange={(e) => setFormData({ ...formData, [key]: e.target.checked })}
                           className="w-4.5 h-4.5 accent-blue-600 rounded cursor-pointer"
                         />
-                        {shift}
+                        {shift.label}
                       </label>
                     );
                   })}

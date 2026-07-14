@@ -235,9 +235,11 @@ export default function AdminReviewsPage() {
             <div className="hidden sm:flex items-center gap-1.5 text-sm text-amber-600 font-semibold bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
               <ShieldCheck className="w-3.5 h-3.5" /> Staff Admin
             </div>
+            {/*
             <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-50">
               <Bell className="w-4 h-4 text-gray-500" />
             </button>
+            */}
             <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-xs font-bold">SA</div>
           </div>
         </div>
@@ -335,7 +337,10 @@ export default function AdminReviewsPage() {
 
                       {/* Patient */}
                       <div className="flex items-center gap-2">
-                        <div className={`w-7 h-7 rounded-full ${r.patientColor} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                        <div 
+                          className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${r.patientColor?.startsWith('bg-') ? r.patientColor : ''}`}
+                          style={(!r.patientColor?.startsWith('bg-') && r.patientColor) ? { backgroundColor: r.patientColor } : {}}
+                        >
                           {r.patientInitials}
                         </div>
                         <span className="text-sm text-gray-600">{r.patientName}</span>

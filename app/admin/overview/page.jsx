@@ -45,7 +45,7 @@ export default function AdminOverviewPage() {
     revenue: [],
     healthStats: [],
     newPatients: [],
-    pendingDoctors: [],
+    newDoctors: [],
     settings: { showPlatformHealth: false },
   });
   
@@ -277,10 +277,12 @@ export default function AdminOverviewPage() {
             <div className="hidden sm:flex items-center gap-1.5 text-sm text-amber-600 font-semibold bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
               <ShieldCheck className="w-3.5 h-3.5" /> Staff Admin
             </div>
+            {/*
             <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-50 relative">
               <Bell className="w-4 h-4 text-gray-500" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
             </button>
+            */}
             <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-xs font-bold">SA</div>
           </div>
         </div>
@@ -447,7 +449,7 @@ export default function AdminOverviewPage() {
 
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
               <div className="flex items-center justify-between mb-5">
-                <h2 className="text-lg font-bold text-gray-900">Pending Verification</h2>
+                <h2 className="text-lg font-bold text-gray-900">New Doctors</h2>
                 <button 
                   onClick={() => navigateTo('/admin/doctors')}
                   className="flex items-center gap-1 text-sm text-emerald-600 font-medium hover:underline transition-colors"
@@ -456,8 +458,8 @@ export default function AdminOverviewPage() {
                 </button>
               </div>
               <ul className="space-y-4">
-                {data.pendingDoctors && data.pendingDoctors.length > 0 ? (
-                  data.pendingDoctors.map((d) => {
+                {data.newDoctors && data.newDoctors.length > 0 ? (
+                  data.newDoctors.map((d) => {
                     const color = d.color || getAvatarColor(d.name);
                     const initials = d.initials || getInitials(d.name);
                     return (
@@ -470,19 +472,18 @@ export default function AdminOverviewPage() {
                           <p className="text-xs text-gray-400 truncate">{d.spec}</p>
                           <p className="text-[11px] text-gray-300 font-mono truncate">{d.mci}</p>
                         </div>
-                        <div className="flex flex-col gap-1 shrink-0">
-                          <button className="text-xs font-semibold text-white bg-emerald-500 hover:bg-emerald-600 px-3 py-1 rounded-lg transition-colors">
-                            Verify
-                          </button>
-                          <button className="text-xs font-semibold text-red-500 hover:text-red-700 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors">
-                            Reject
-                          </button>
-                        </div>
+                        {d.isVerified === false && (
+                          <div className="flex flex-col gap-1 shrink-0">
+                            <button className="text-xs font-semibold text-white bg-amber-500 px-2 py-0.5 rounded transition-colors">
+                              Pending
+                            </button>
+                          </div>
+                        )}
                       </li>
                     );
                   })
                 ) : (
-                  <li className="text-center text-gray-400 py-4 text-sm">No pending verifications</li>
+                  <li className="text-center text-gray-400 py-4 text-sm">No new doctors</li>
                 )}
               </ul>
             </div>

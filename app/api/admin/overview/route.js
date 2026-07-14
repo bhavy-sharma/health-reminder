@@ -46,14 +46,14 @@ export async function GET(request) {
       revenue,
       healthStats,
       newPatients,
-      pendingDoctors,
+      newDoctors,
     ] = await Promise.all([
       getStats(),
       getAlerts(),
       getRevenueData(period),
       getHealthStats(),
       getNewPatients(),
-      getPendingDoctors(),
+      getNewDoctors(),
       Settings.findOne()
     ]);
 
@@ -71,7 +71,7 @@ export async function GET(request) {
         revenue,
         healthStats,
         newPatients,
-        pendingDoctors,
+        newDoctors,
         settings: settings.homepage,
       },
     });
@@ -330,8 +330,8 @@ async function getNewPatients(limit = 4) {
   return patients;
 }
 
-async function getPendingDoctors(limit = 3) {
-  const doctors = await Doctor.find({ isVerified: false })
+async function getNewDoctors(limit = 4) {
+  const doctors = await Doctor.find({})
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();

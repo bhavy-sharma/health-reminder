@@ -225,6 +225,26 @@ export default function AdminPatientsPage() {
     return () => clearTimeout(timer);
   }, [search, planFilter, statusFilter]);
 
+  // Close open menu on scroll or click outside
+  useEffect(() => {
+    const handleScroll = () => {
+      if (openMenu) setOpenMenu(null);
+    };
+    const handleClickOutside = (e) => {
+      if (openMenu && !e.target.closest('.action-menu-wrapper')) {
+        setOpenMenu(null);
+      }
+    };
+    
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+    window.addEventListener('mousedown', handleClickOutside);
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll, { capture: true });
+      window.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openMenu]);
+
   // Show toast notification
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -394,9 +414,11 @@ export default function AdminPatientsPage() {
             <div className="hidden sm:flex items-center gap-1.5 text-sm text-amber-600 font-semibold bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
               <ShieldCheck className="w-3.5 h-3.5" /> Staff Admin
             </div>
+            {/*
             <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-50">
               <Bell className="w-4 h-4 text-gray-500" />
             </button>
+            */}
             <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-xs font-bold">SA</div>
           </div>
         </div>
@@ -556,7 +578,7 @@ export default function AdminPatientsPage() {
                       </span>
                     </div>
 
-                    <div className="relative flex justify-center">
+                    <div className="relative flex justify-center action-menu-wrapper">
                       <button
                         onClick={() => setOpenMenu(openMenu === p.id ? null : p.id)}
                         className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
@@ -637,7 +659,7 @@ export default function AdminPatientsPage() {
                           <p className="text-sm font-semibold text-gray-900">{p.name}</p>
                           <p className="text-xs text-gray-400 truncate">{p.email}</p>
                         </div>
-                        <div className="relative">
+                        <div className="relative action-menu-wrapper">
                           <button
                             onClick={() => setOpenMenu(openMenu === p.id ? null : p.id)}
                             className="p-1 hover:bg-gray-100 rounded-lg transition-colors"

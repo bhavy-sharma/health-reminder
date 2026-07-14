@@ -272,6 +272,7 @@ export default function AdminSidebar({ active, setActive, isMobileOpen, setIsMob
             </p>
           </div>
         </div>
+        {/*
         <div className="flex gap-2 mb-2">
           <Link 
             href="/patient/dashboard" 
@@ -286,6 +287,7 @@ export default function AdminSidebar({ active, setActive, isMobileOpen, setIsMob
             Doctor View
           </Link>
         </div>
+        */}
         <button 
           onClick={handleLogout}
           disabled={loggingOut}

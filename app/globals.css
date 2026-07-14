@@ -1,6 +1,10 @@
 
 @import "tailwindcss";
 
+html {
+  scroll-behavior: smooth;
+}
+
 :root {
   /* Primary Colors */
   --cream: #f7f4ef;

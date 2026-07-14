@@ -130,9 +130,9 @@ export default function PatientAppointments() {
 
     const statusTabs = [
         { id: 'all', label: 'All', count: counts.all },
+        { id: 'completed', label: 'Past Appointment', count: counts.completed },
         { id: 'pending', label: 'Pending', count: counts.pending },
         { id: 'confirmed', label: 'Confirmed', count: counts.confirmed },
-        { id: 'completed', label: 'Completed', count: counts.completed },
         { id: 'cancelled', label: 'Cancelled', count: counts.cancelled },
     ];
 
@@ -190,13 +190,22 @@ export default function PatientAppointments() {
                                 {counts.confirmed} confirmed · {counts.pending} pending
                             </p>
                         </div>
-                        <Link
-                            href="/find-doctors"
-                            className="bg-[#0D1B2A] text-white px-5 py-2.5 rounded-lg font-medium text-sm hover:bg-[#1a2e44] transition-colors flex items-center gap-2"
-                        >
-                            <Calendar className="w-4 h-4" />
-                            Book New Appointment
-                        </Link>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => setStatusFilter('completed')}
+                                className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-lg font-medium text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
+                            >
+                                <Clock className="w-4 h-4" />
+                                View past Appointment
+                            </button>
+                            <Link
+                                href="/find-doctors"
+                                className="bg-[#0D1B2A] text-white px-5 py-2.5 rounded-lg font-medium text-sm hover:bg-[#1a2e44] transition-colors flex items-center gap-2 shadow-sm"
+                            >
+                                <Calendar className="w-4 h-4" />
+                                Book New Appointment
+                            </Link>
+                        </div>
                     </div>
 
                     {/* Status Tabs */}

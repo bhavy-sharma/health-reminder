@@ -28,7 +28,7 @@ const MedicineReminderSchema = new mongoose.Schema(
     },
     foodRelation: {
       type: String,
-      enum: ['Before Food', 'After Food', 'With Food', 'No Relation'],
+      enum: ['Before Food', 'After Food', 'With Food', 'No Relation', 'empty_stomach', 'before_food', 'with_food', 'after_food', 'no_relation'],
       default: 'After Food',
     },
     // Scheduling flags
@@ -36,6 +36,12 @@ const MedicineReminderSchema = new mongoose.Schema(
     afternoon: { type: Boolean, default: false },
     evening: { type: Boolean, default: false },
     night: { type: Boolean, default: false },
+    empty_stomach: { type: Boolean, default: false },
+    after_breakfast: { type: Boolean, default: false },
+    after_lunch: { type: Boolean, default: false },
+    before_dinner: { type: Boolean, default: false },
+    after_dinner: { type: Boolean, default: false },
+    before_bed: { type: Boolean, default: false },
     customTime: { type: String }, // e.g. "14:30" or ""
     
     startDate: { type: Date, required: true },

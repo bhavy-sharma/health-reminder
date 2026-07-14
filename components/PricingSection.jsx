@@ -250,7 +250,7 @@ export default function PricingSection() {
   }
 
   return (
-    <section className="bg-[#F5F3EF] py-20 px-8">
+    <section id="pricing" className="bg-[#F5F3EF] py-20 px-8">
       <Toaster position="top-right" />
       
       <div className="max-w-6xl mx-auto">

@@ -454,6 +454,26 @@ export default function AdminDoctorsPage() {
     return () => clearTimeout(timer);
   }, [search, specialtyFilter, statusFilter]);
 
+  // Close open menu on scroll or click outside
+  useEffect(() => {
+    const handleScroll = () => {
+      if (openMenuId) setOpenMenuId(null);
+    };
+    const handleClickOutside = (e) => {
+      if (openMenuId && !e.target.closest('.action-menu-wrapper')) {
+        setOpenMenuId(null);
+      }
+    };
+    
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+    window.addEventListener('mousedown', handleClickOutside);
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll, { capture: true });
+      window.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openMenuId]);
+
   const handleRefresh = () => {
     fetchDoctors(true);
   };
@@ -632,9 +652,11 @@ export default function AdminDoctorsPage() {
             <div className="hidden sm:flex items-center gap-1.5 text-sm text-amber-600 font-semibold bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
               <ShieldCheck className="w-3.5 h-3.5" /> Staff Admin
             </div>
+            {/*
             <button className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-50">
               <Bell className="w-4 h-4 text-gray-500" />
             </button>
+            */}
             <div className="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-white text-xs font-bold">SA</div>
           </div>
         </div>
@@ -786,7 +808,7 @@ export default function AdminDoctorsPage() {
                         </button>
                       </div>
                     ) : (
-                      <div className="relative">
+                      <div className="relative action-menu-wrapper">
                         <button
                           onClick={() => setOpenMenuId(openMenuId === doctor.id ? null : doctor.id)}
                           className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
