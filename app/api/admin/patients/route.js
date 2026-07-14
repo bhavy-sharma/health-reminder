@@ -5,6 +5,13 @@ import { validateUserRole } from "@/lib/auth";
 import User from "@/models/User";
 import Family from "@/models/Family";
 import FamilyMember from "@/models/FamilyMember";
+import { sendEmail } from "@/lib/email";
+import { 
+  getPatientVerificationEmailTemplate, 
+  getPatientSuspensionEmailTemplate, 
+  getPatientUnsuspensionEmailTemplate,
+  getPatientDeletionEmailTemplate 
+} from "@/lib/emailTemplates";
 
 export async function GET(request) {
   try {
@@ -214,6 +221,18 @@ export async function POST(request) {
       );
     }
 
+    if (action === 'delete' && !reason) {
+      return NextResponse.json(
+        { error: "Reason is required for deletion" },
+        { status: 400 }
+      );
+    }
+
+    // Fetch target users to get their emails and names before they are potentially deleted
+    const targetUsers = await User.find({ _id: { $in: patientIds } })
+      .select('email fullName')
+      .lean();
+
     let result;
 
     switch (action) {
@@ -261,6 +280,41 @@ export async function POST(request) {
           { error: `Unknown action: ${action}` },
           { status: 400 }
         );
+    }
+
+    // Send emails
+    if (['suspend', 'unsuspend', 'delete', 'verify'].includes(action)) {
+      // Fire off emails asynchronously without blocking the response
+      Promise.all(targetUsers.map(async (user) => {
+        if (!user.email) return;
+        
+        try {
+          let html = '';
+          let subject = '';
+          
+          if (action === 'verify') {
+            subject = 'Your Account has been Verified - Family Health';
+            html = getPatientVerificationEmailTemplate({ name: user.fullName || 'Patient' });
+          } else if (action === 'suspend') {
+            subject = 'Account Suspended - Family Health';
+            html = getPatientSuspensionEmailTemplate({ name: user.fullName || 'Patient', reason: reason || 'Suspended by admin' });
+          } else if (action === 'unsuspend') {
+            subject = 'Account Restored - Family Health';
+            html = getPatientUnsuspensionEmailTemplate({ name: user.fullName || 'Patient' });
+          } else if (action === 'delete') {
+            subject = 'Account Deleted - Family Health';
+            html = getPatientDeletionEmailTemplate({ name: user.fullName || 'Patient', reason });
+          }
+          
+          if (html) {
+            await sendEmail({ to: user.email, subject, html });
+          }
+        } catch (emailError) {
+          console.error(`Failed to send ${action} email to ${user.email}:`, emailError);
+        }
+      })).catch(err => {
+        console.error("Error in email sending batch:", err);
+      });
     }
 
     return NextResponse.json({

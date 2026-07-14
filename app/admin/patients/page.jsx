@@ -31,7 +31,7 @@ function ActionModal({ isOpen, onClose, onConfirm, title, message, action, loadi
   if (!isOpen) return null;
 
   const handleConfirm = () => {
-    if (action === 'suspend' && !reason.trim()) {
+    if ((action === 'suspend' || action === 'delete') && !reason.trim()) {
       return;
     }
     onConfirm(reason);
@@ -52,15 +52,15 @@ function ActionModal({ isOpen, onClose, onConfirm, title, message, action, loadi
 
         <p className="text-sm text-gray-600 mb-4">{message}</p>
 
-        {action === 'suspend' && (
+        {(action === 'suspend' || action === 'delete') && (
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Suspension Reason
+              {action === 'delete' ? 'Deletion Reason' : 'Suspension Reason'}
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Enter reason for suspension..."
+              placeholder={`Enter reason for ${action}...`}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-200 text-sm"
               rows="3"
             />
@@ -79,7 +79,7 @@ function ActionModal({ isOpen, onClose, onConfirm, title, message, action, loadi
           </button>
           <button
             onClick={handleConfirm}
-            disabled={loading || (action === 'suspend' && !reason.trim())}
+            disabled={loading || ((action === 'suspend' || action === 'delete') && !reason.trim())}
             className={`flex-1 px-4 py-2 text-white rounded-lg transition-colors text-sm font-medium disabled:opacity-50 ${
               action === 'delete' 
                 ? 'bg-red-500 hover:bg-red-600' 
@@ -496,9 +496,9 @@ export default function AdminPatientsPage() {
           </div>
 
           {/* Table */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
             {/* Table header */}
-            <div className="hidden md:grid grid-cols-[40px_1fr_140px_100px_110px_80px_40px] items-center px-5 py-3 border-b border-gray-100 bg-gray-50">
+            <div className="hidden md:grid grid-cols-[40px_1fr_140px_100px_110px_80px_40px] items-center px-5 py-3 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
               <input
                 type="checkbox"
                 checked={allChecked}

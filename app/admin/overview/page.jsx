@@ -28,6 +28,8 @@ import {
 import AdminSidebar from '@/components/admin/Sidebar';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import PlatformHealthCard from '@/components/PlatformHealthCard';
+import toast, { Toaster } from 'react-hot-toast';
 
 // ── Main Component ────────────────────────────────────────────
 export default function AdminOverviewPage() {
@@ -44,7 +46,36 @@ export default function AdminOverviewPage() {
     healthStats: [],
     newPatients: [],
     pendingDoctors: [],
+    settings: { showPlatformHealth: false },
   });
+  
+  const handleTogglePlatformHealth = async () => {
+    try {
+      const newValue = !data.settings?.showPlatformHealth;
+      // Optimistically update
+      setData(prev => ({
+        ...prev,
+        settings: { ...prev.settings, showPlatformHealth: newValue }
+      }));
+      
+      const res = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ showPlatformHealth: newValue })
+      });
+      
+      if (!res.ok) throw new Error('Failed to update settings');
+      toast.success(newValue ? 'Platform Health section is now visible on Homepage' : 'Platform Health section hidden from Homepage');
+    } catch (err) {
+      console.error(err);
+      toast.error('Could not update setting');
+      // Revert on error
+      setData(prev => ({
+        ...prev,
+        settings: { ...prev.settings, showPlatformHealth: !prev.settings.showPlatformHealth }
+      }));
+    }
+  };
 
   // Icon mapping for dynamic icons
   const iconMap = {
@@ -214,6 +245,7 @@ export default function AdminOverviewPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F2] flex">
+      <Toaster position="top-right" />
       <AdminSidebar 
         active={active} 
         setActive={setActive} 
@@ -359,17 +391,20 @@ export default function AdminOverviewPage() {
             </div>
 
             {/* Platform Health */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-5">Platform Health</h2>
-              <ul className="space-y-3">
-                {data.healthStats && data.healthStats.map(({ label, value, valueColor }) => (
-                  <li key={label} className="flex items-center justify-between border-b border-gray-50 pb-3 last:border-0 last:pb-0">
-                    <span className="text-xs sm:text-sm text-gray-500">{label}</span>
-                    <span className={`text-xs sm:text-sm font-bold ${valueColor || 'text-gray-900'}`}>{value}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <PlatformHealthCard 
+              healthStats={data.healthStats} 
+              rightElement={
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500 font-medium">Show on Homepage</span>
+                  <button 
+                    onClick={handleTogglePlatformHealth}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${data.settings?.showPlatformHealth ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                  >
+                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${data.settings?.showPlatformHealth ? 'translate-x-4.5' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+              }
+            />
           </div>
 
           {/* New Patients + Pending Verification */}

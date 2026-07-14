@@ -9,6 +9,8 @@ import User from "@/models/User";
 import Review from "@/models/Review";
 import Appointment from "@/models/Appointment";
 import Payment from "@/models/Payment";
+import Settings from "@/models/Settings";
+import { getAverageRating, getResponseRate, getAppointmentsToday } from "@/lib/healthStats";
 
 export async function GET(request) {
   try {
@@ -52,7 +54,14 @@ export async function GET(request) {
       getHealthStats(),
       getNewPatients(),
       getPendingDoctors(),
+      Settings.findOne()
     ]);
+
+    // Ensure settings exists
+    let settings = await Settings.findOne();
+    if (!settings) {
+      settings = await Settings.create({ homepage: { showPlatformHealth: false } });
+    }
 
     return NextResponse.json({
       success: true,
@@ -63,6 +72,7 @@ export async function GET(request) {
         healthStats,
         newPatients,
         pendingDoctors,
+        settings: settings.homepage,
       },
     });
   } catch (error) {
@@ -255,7 +265,6 @@ async function getHealthStats() {
     avgRating,
     responseRate,
     appointmentsToday,
-    // Removed: activeMedicines, docsUploaded, whatsappReminders
   ] = await Promise.all([
     getAverageRating(),
     getResponseRate(),
@@ -266,7 +275,6 @@ async function getHealthStats() {
     { label: "Avg Doctor Rating", value: `${avgRating.toFixed(1)} ★`, valueColor: "text-amber-500" },
     { label: "Review Response Rate", value: `${responseRate}%`, valueColor: "text-gray-900" },
     { label: "Appointments Today", value: formatNumber(appointmentsToday), valueColor: "text-gray-900" },
-    // Removed: Active Medicines, Docs Uploaded, WhatsApp Reminders
   ];
 }
 
@@ -365,35 +373,7 @@ async function getMonthlyRevenue(date = new Date()) {
   return result.length > 0 ? result[0].total : 0;
 }
 
-async function getAverageRating() {
-  const result = await Review.aggregate([
-    { $match: { isFlagged: false } },
-    { $group: { _id: null, avg: { $avg: "$rating" } } },
-  ]);
-  return result.length > 0 ? result[0].avg : 0;
-}
 
-async function getResponseRate() {
-  const total = await Review.countDocuments({ isFlagged: false });
-  if (total === 0) return 0;
-  const replied = await Review.countDocuments({ 
-    isFlagged: false,
-    doctorReply: { $ne: null, $exists: true, $ne: "" }
-  });
-  return Math.round((replied / total) * 100);
-}
-
-async function getAppointmentsToday() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  
-  return await Appointment.countDocuments({
-    date: { $gte: today, $lt: tomorrow },
-    status: { $ne: "cancelled" }
-  });
-}
 
 function formatNumber(num) {
   if (num >= 1000) {

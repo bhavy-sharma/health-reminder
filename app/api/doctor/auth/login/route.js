@@ -31,15 +31,7 @@ export async function POST(request) {
     }
 
     // Check status
-    if (doctor.status === "pending") {
-      return NextResponse.json(
-        { 
-          error: "Your account is pending admin approval.",
-          status: "pending"
-        },
-        { status: 403 }
-      );
-    }
+    // Allow pending doctors to log in so the frontend can handle the pending state
 
     if (doctor.status === "rejected") {
       return NextResponse.json(
@@ -63,7 +55,7 @@ export async function POST(request) {
       );
     }
 
-    if (doctor.status !== "approved") {
+    if (doctor.status !== "approved" && doctor.status !== "pending") {
       return NextResponse.json(
         { 
           error: `Your account is ${doctor.status}. Please contact support.`,

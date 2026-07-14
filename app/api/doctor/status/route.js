@@ -10,7 +10,7 @@ export async function GET(request) {
     
     if (!auth || !auth.authenticated) {
       return NextResponse.json(
-        { error: "Please login to continue" },
+        { error: auth?.error || "Please login to continue" },
         { status: 401 }
       );
     }

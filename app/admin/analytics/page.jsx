@@ -281,7 +281,8 @@ export default function AdminAnalyticsPage() {
           </div>
 
           {/* Revenue + Plan Distribution */}
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-4">
+          <div className="grid grid-cols-1 gap-4">
+            {/* Revenue Section - Temporarily hidden until real analytics are implemented
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
               <h2 className="text-lg font-bold text-gray-900">Revenue</h2>
               <p className="text-sm text-gray-400 mb-4">Monthly doctor subscription revenue</p>
@@ -303,6 +304,7 @@ export default function AdminAnalyticsPage() {
                 )}
               </div>
             </div>
+            */}
 
             {/* Donut chart */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6 flex flex-col">
@@ -346,7 +348,8 @@ export default function AdminAnalyticsPage() {
           </div>
 
           {/* Appointments by Day + Top Specialties */}
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-4">
+          <div className="grid grid-cols-1 gap-4">
+            {/* Appointments by Day Section - Temporarily hidden until real analytics are implemented
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
               <h2 className="text-lg font-bold text-gray-900">Appointments by Day</h2>
               <p className="text-sm text-gray-400 mb-4">Average weekly pattern</p>
@@ -368,6 +371,7 @@ export default function AdminAnalyticsPage() {
                 )}
               </div>
             </div>
+            */}
 
             {/* Top Specialties */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">

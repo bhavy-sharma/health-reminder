@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import Sidebar from './Sidebar';
+import { Toaster } from 'react-hot-toast';
+import { handleShare } from './utils';
 
 export default function Dashboard() {
   const [user, setUser] = useState(null);
@@ -305,6 +307,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex min-h-screen bg-[#F8FAFC]">
+      <Toaster position="top-right" />
       <Sidebar />
       <div className="flex-1 ml-0 md:ml-[280px] p-4 md:p-8 pt-20 md:pt-8 transition-all duration-300">
         <div className="max-w-7xl mx-auto space-y-8">
@@ -541,7 +544,7 @@ export default function Dashboard() {
                             <Link href={`/health-records?view=${record.id}`} className="flex-1 py-1.5 bg-white border border-[#E2E8F0] text-[#111827] text-[11px] font-bold rounded-lg hover:bg-slate-50 transition text-center">
                               View
                             </Link>
-                            <button className="flex-1 py-1.5 bg-[#0B1F4D] text-white text-[11px] font-bold rounded-lg hover:bg-[#071433] transition text-center">
+                            <button onClick={() => handleShare(record.fileUrl, record.title)} className="flex-1 py-1.5 bg-[#0B1F4D] text-white text-[11px] font-bold rounded-lg hover:bg-[#071433] transition text-center">
                               Share
                             </button>
                           </div>

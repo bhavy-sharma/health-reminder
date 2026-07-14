@@ -1,8 +1,8 @@
-// app/api/doctor/auth/signup/route.js
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import Doctor from "@/models/Doctor";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 export async function POST(request) {
   try {
@@ -88,7 +88,20 @@ export async function POST(request) {
     const doctorResponse = doctor.toObject();
     delete doctorResponse.password;
 
-    return NextResponse.json(
+    // Create token
+    const token = jwt.sign(
+      { 
+        doctorId: doctor._id,
+        userId: doctor._id, 
+        email: doctor.email, 
+        role: "doctor",
+        status: doctor.status 
+      },
+      process.env.JWT_SECRET || "fallback_secret",
+      { expiresIn: "7d" }
+    );
+
+    const response = NextResponse.json(
       {
         success: true,
         message: "Doctor registration request submitted for admin approval",
@@ -96,6 +109,18 @@ export async function POST(request) {
       },
       { status: 201 }
     );
+
+    response.cookies.set({
+      name: "token",
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60,
+    });
+
+    return response;
   } catch (error) {
     console.error("Doctor signup error:", error);
     return NextResponse.json(

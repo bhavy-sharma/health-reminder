@@ -48,9 +48,9 @@ export async function GET(request) {
     ] = await Promise.all([
       getStatCards(month, year),
       getUserGrowth(period),
-      getRevenueData(period),
+      // getRevenueData(period),
       getPlanDistribution(),
-      getAppointmentsByDay(),
+      // getAppointmentsByDay(),
       getTopSpecialties(),
     ]);
 
@@ -59,9 +59,9 @@ export async function GET(request) {
       data: {
         statCards,
         userGrowth,
-        revenue,
+        revenue: [], // revenue,
         planDistribution,
-        appointmentsByDay,
+        appointmentsByDay: [], // appointmentsByDay,
         topSpecialties,
       },
     });
@@ -96,8 +96,10 @@ async function getStatCards(month, year) {
   ] = await Promise.all([
     User.countDocuments({ role: 'patient' }), // Total patients from User model
     Doctor.countDocuments({ isVerified: true }),
-    getMonthlyRevenue(startDate, endDate),
-    getTodayAppointments(),
+    // getMonthlyRevenue(startDate, endDate),
+    // getTodayAppointments(),
+    Promise.resolve(0), // Placeholder for monthlyRevenue
+    Promise.resolve(0), // Placeholder for appointmentsToday
     User.countDocuments({
       role: 'patient',
       createdAt: { $lt: startDate }
@@ -106,11 +108,13 @@ async function getStatCards(month, year) {
       isVerified: true,
       createdAt: { $lt: startDate }
     }),
-    getMonthlyRevenue(
-      new Date(year, month - 2, 1),
-      new Date(year, month - 1, 0)
-    ),
-    getAppointmentsForDate(new Date(new Date().setDate(new Date().getDate() - 1))),
+    // getMonthlyRevenue(
+    //   new Date(year, month - 2, 1),
+    //   new Date(year, month - 1, 0)
+    // ),
+    // getAppointmentsForDate(new Date(new Date().setDate(new Date().getDate() - 1))),
+    Promise.resolve(0), // Placeholder for previousMonthRevenue
+    Promise.resolve(0), // Placeholder for previousMonthAppointments
   ]);
 
   // Calculate growth percentages
@@ -149,6 +153,7 @@ async function getStatCards(month, year) {
       growth: `${doctorGrowth > 0 ? "+" : ""}${doctorGrowth}%`,
       up: doctorGrowth >= 0,
     },
+    /* Temporarily hidden until real analytics are implemented
     {
       icon: "IndianRupee",
       iconBg: "bg-amber-50",
@@ -167,6 +172,7 @@ async function getStatCards(month, year) {
       growth: `${appointmentGrowth > 0 ? "+" : ""}${appointmentGrowth}%`,
       up: appointmentGrowth >= 0,
     },
+    */
   ];
 }
 

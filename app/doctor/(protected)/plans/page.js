@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, Shield, Zap, Crown, Check, X as XIcon, CreditCard, Lock, Download, X, Loader2 } from "lucide-react";
+import { Bell, Shield, Zap, Crown, Check, X as XIcon, CreditCard, Lock, Download, X, Loader2, Clock } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
 
@@ -185,6 +185,38 @@ export default function PlansAndBilling() {
     );
   }
 
+  if (error) {
+    if (error.includes('pending') || error.includes('verification')) {
+      return (
+        <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)]">
+          <div className="text-center max-w-md bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+            <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Clock className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-3">Your Profile is Under Verification</h2>
+            <p className="text-gray-500 mb-6 text-sm leading-relaxed">
+              Your profile is under verification. Premium plans can be purchased after your account has been approved.
+            </p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-6 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-semibold hover:bg-gray-800 transition-colors"
+            >
+              Refresh Status
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-200px)]">
+        <div className="max-w-4xl mx-auto p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+          {error}
+        </div>
+      </div>
+    );
+  }
+
   const isCurrentPlan = (plan) => planData.currentPlan === plan;
 
   return (
@@ -258,12 +290,7 @@ export default function PlansAndBilling() {
         </div>
       </div>
 
-      {/* Error Display */}
-      {error && (
-        <div className="max-w-4xl mx-auto mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
-          {error}
-        </div>
-      )}
+
 
       {/* Pricing Cards */}
       <div className="max-w-4xl mx-auto space-y-8">

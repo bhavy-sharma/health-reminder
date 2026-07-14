@@ -14,7 +14,7 @@ export async function GET(request) {
 
     if (!auth || !auth.authenticated) {
       return NextResponse.json(
-        { error: "Please login to continue" },
+        { error: auth?.error || "Please login to continue" },
         { status: 401 }
       );
     }
@@ -27,6 +27,12 @@ export async function GET(request) {
     }
 
     if (auth.role !== 'doctor') {
+      if (auth.hasDoctorProfile && auth.doctorStatus === 'pending') {
+        return NextResponse.json(
+          { error: "Your profile is under verification. Once it is verified, you will be able to access the dashboard." },
+          { status: 403 }
+        );
+      }
       return NextResponse.json(
         { error: "Access denied. Doctor access required." },
         { status: 403 }
