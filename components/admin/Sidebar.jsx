@@ -1,136 +1,52 @@
-'use client';
+// components/doctor/DoctorSidebar.jsx
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import {
-  LayoutDashboard,
-  BarChart2,
-  Users,
-  Stethoscope,
-  Star,
-  ShieldCheck,
-  LogOut,
-  Menu,
-  X,
-  Loader2,
-  MessageCircle,
-  HelpCircle,
-} from 'lucide-react';
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { 
+  LayoutGrid, Calendar, Star, User, CreditCard, LogOut, ArrowLeft, 
+  Loader2, MessageCircle, HelpCircle 
+} from "lucide-react";
+import { useState, useEffect } from "react";
 
-const adminNav = {
-  main: [
-    { key: 'overview', label: 'Overview', icon: LayoutDashboard, href: '/admin/overview' },
-    { key: 'analytics', label: 'Analytics', icon: BarChart2, href: '/admin/analytics' },
-  ],
-  people: [
-    { key: 'patients', label: 'Patients', icon: Users, href: '/admin/patients' },
-    { key: 'doctors', label: 'Doctors', icon: Stethoscope, href: '/admin/doctors' },
-  ],
-  business: [
-    { key: 'reviews', label: 'Reviews', icon: Star, href: '/admin/reviews' },
-  ],
-  support: [
-    { key: 'queries', label: 'Doctor Queries', icon: MessageCircle, href: '/admin/queries' },
-  ],
-};
-
-export default function AdminSidebar({ active, setActive, isMobileOpen, setIsMobileOpen }) {
+export default function DoctorSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [adminData, setAdminData] = useState({
-    name: 'Admin',
-    email: '',
-    role: 'admin',
-  });
+  const [doctorData, setDoctorData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    pendingDoctors: 0,
-    flaggedReviews: 0,
-    totalPatients: 0,
-    openQueries: 0,
-  });
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [pendingQueriesCount, setPendingQueriesCount] = useState(0);
 
-  const getActiveFromPath = () => {
-    if (pathname?.includes('/admin/overview')) return 'overview';
-    if (pathname?.includes('/admin/analytics')) return 'analytics';
-    if (pathname?.includes('/admin/patients')) return 'patients';
-    if (pathname?.includes('/admin/doctors')) return 'doctors';
-    if (pathname?.includes('/admin/reviews')) return 'reviews';
-    if (pathname?.includes('/admin/queries')) return 'queries';
-    return active || 'overview';
-  };
-
-  const currentActive = getActiveFromPath();
-
-  // Fetch admin data and stats
   useEffect(() => {
-    fetchAdminData();
-    fetchStats();
+    fetchDoctorData();
+    fetchPendingQueriesCount();
   }, []);
 
-  const fetchAdminData = async () => {
+  const fetchDoctorData = async () => {
     try {
-      const response = await fetch('/api/admin/profile');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data) {
-          setAdminData({
-            name: data.data.fullName || data.data.name || 'Admin',
-            email: data.data.email || '',
-            role: data.data.role || 'admin',
-          });
-        }
+      const response = await fetch('/api/doctor/profile');
+      const result = await response.json();
+      
+      if (result.success) {
+        setDoctorData(result.data);
       }
     } catch (error) {
-      console.error('Error fetching admin data:', error);
+      console.error('Error fetching doctor data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchStats = async () => {
+  const fetchPendingQueriesCount = async () => {
     try {
-      // Fetch pending doctors count
-      const doctorsRes = await fetch('/api/admin/doctors?status=pending&limit=1');
-      if (doctorsRes.ok) {
-        const doctorsData = await doctorsRes.json();
-        if (doctorsData.success) {
-          setStats(prev => ({ ...prev, pendingDoctors: doctorsData.data.total || 0 }));
-        }
-      }
-
-      // Fetch flagged reviews count
-      const reviewsRes = await fetch('/api/admin/reviews?status=flagged&limit=1');
-      if (reviewsRes.ok) {
-        const reviewsData = await reviewsRes.json();
-        if (reviewsData.success) {
-          setStats(prev => ({ ...prev, flaggedReviews: reviewsData.data.total || 0 }));
-        }
-      }
-
-      // Fetch total patients count
-      const patientsRes = await fetch('/api/admin/patients?limit=1');
-      if (patientsRes.ok) {
-        const patientsData = await patientsRes.json();
-        if (patientsData.success) {
-          setStats(prev => ({ ...prev, totalPatients: patientsData.data.total || 0 }));
-        }
-      }
-
-      // ─── Fetch open queries count ───
-      const queriesRes = await fetch('/api/admin/queries?status=open,in_progress&limit=1');
-      if (queriesRes.ok) {
-        const queriesData = await queriesRes.json();
-        if (queriesData.success) {
-          const openCount = queriesData.data.counts?.open || 0;
-          const inProgressCount = queriesData.data.counts?.in_progress || 0;
-          setStats(prev => ({ ...prev, openQueries: openCount + inProgressCount }));
-        }
+      const response = await fetch('/api/doctor/queries?status=open,in_progress&limit=1');
+      const result = await response.json();
+      
+      if (result.success) {
+        setPendingQueriesCount(result.data.total || 0);
       }
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('Error fetching queries count:', error);
     }
   };
 
@@ -142,16 +58,11 @@ export default function AdminSidebar({ active, setActive, isMobileOpen, setIsMob
         headers: { 'Content-Type': 'application/json' },
       });
 
-      if (response.ok) {
-        localStorage.removeItem('token');
-        sessionStorage.clear();
-        router.push('/login');
-        router.refresh();
-      } else {
-        const data = await response.json();
-        console.error('Logout failed:', data.error);
-        router.push('/login');
-      }
+      localStorage.removeItem('token');
+      sessionStorage.clear();
+      
+      router.push('/login');
+      router.refresh();
     } catch (error) {
       console.error('Logout error:', error);
       router.push('/login');
@@ -161,182 +72,175 @@ export default function AdminSidebar({ active, setActive, isMobileOpen, setIsMob
   };
 
   const getInitials = (name) => {
-    if (!name) return 'A';
+    if (!name) return 'D';
     const parts = name.trim().split(' ');
     if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
     return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
   };
 
-  const getBadgeColor = (type) => {
-    switch (type) {
-      case 'pending':
-        return 'bg-amber-100 text-amber-700';
-      case 'flagged':
-        return 'bg-red-100 text-red-600';
-      case 'patients':
-        return 'bg-blue-100 text-blue-600';
-      case 'queries':
-        return 'bg-amber-100 text-amber-700';
-      default:
-        return 'bg-gray-100 text-gray-600';
-    }
-  };
+  const navItems = [
+    { name: "Overview", href: "/doctor/dashboard", icon: LayoutGrid },
+    { name: "Appointments", href: "/doctor/appointments", icon: Calendar, badge: 4 },
+    { name: "Reviews", href: "/doctor/reviews", icon: Star },
+    { name: "Edit Profile", href: "/doctor/profile", icon: User },
+    { name: "Plans & Billing", href: "/doctor/plans", icon: CreditCard },
+  ];
 
-  const SidebarContent = () => (
-    <>
-      <div className="p-5 border-b border-[#1a2e44]">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-red-500/20">
-            F
-          </div>
-          <div>
-            <p className="text-base font-bold text-white">FamilyHealth</p>
-            <p className="text-[11px] font-semibold tracking-widest text-blue-300 uppercase">Admin Console</p>
-          </div>
-        </div>
-        <div className="mt-4 flex items-center gap-2 bg-blue-900/30 border border-blue-700/30 rounded-xl px-3 py-2">
-          <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0" />
-          <span className="text-sm font-semibold text-blue-300">
-            {loading ? 'Loading...' : `${adminData.role.charAt(0).toUpperCase() + adminData.role.slice(1)} Admin`}
-          </span>
-        </div>
-      </div>
-
-      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-5">
-        {[
-          { title: 'Main', items: adminNav.main },
-          { title: 'People', items: adminNav.people.map(item => ({
-              ...item,
-              badge: item.key === 'patients' && stats.totalPatients > 0 
-                ? `${stats.totalPatients > 1000 ? (stats.totalPatients/1000).toFixed(1) + 'k' : stats.totalPatients}` 
-                : undefined,
-              badgeColor: item.key === 'patients' ? getBadgeColor('patients') : undefined,
-            }))},
-          { title: 'Business', items: adminNav.business.map(item => ({
-              ...item,
-              badge: item.key === 'reviews' && stats.flaggedReviews > 0 
-                ? `${stats.flaggedReviews} flagged` 
-                : undefined,
-              badgeColor: item.key === 'reviews' ? getBadgeColor('flagged') : undefined,
-            }))},
-          // ─── Support Section ───
-          { title: 'Support', items: adminNav.support.map(item => ({
-              ...item,
-              badge: stats.openQueries > 0 ? `${stats.openQueries}` : undefined,
-              badgeColor: stats.openQueries > 0 ? getBadgeColor('queries') : undefined,
-            }))},
-        ].map(({ title, items }) => (
-          <div key={title}>
-            <p className="text-[10px] font-bold tracking-widest text-blue-400/60 uppercase px-2 mb-1.5">{title}</p>
-            {items.map(({ key, label, icon: Icon, href, badge, badgeColor }) => {
-              const isActive = currentActive === key;
-              return (
-                <Link
-                  key={key}
-                  href={href}
-                  onClick={() => {
-                    if (setActive) setActive(key);
-                    if (setIsMobileOpen) setIsMobileOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 mb-0.5 ${
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                      : 'text-blue-300 hover:bg-blue-900/30 hover:text-white'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-blue-400'}`} />
-                  <span className="flex-1 text-left">{label}</span>
-                  {badge && (
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badgeColor || 'bg-gray-100 text-gray-600'}`}>
-                      {badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
-      </nav>
-
-      <div className="border-t border-[#1a2e44] p-4">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-amber-500/20">
-            {loading ? 'A' : getInitials(adminData.name)}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">
-              {loading ? 'Loading...' : adminData.name}
-            </p>
-            <p className="text-xs text-blue-300 truncate">
-              {loading ? '...' : adminData.email}
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2 mb-2">
-          <Link 
-            href="/patient/dashboard" 
-            className="flex-1 text-xs font-medium text-blue-300 border border-blue-700/30 rounded-lg py-1.5 text-center hover:bg-blue-900/30 transition-colors"
-          >
-            Patient View
-          </Link>
-          <Link 
-            href="/doctor/dashboard" 
-            className="flex-1 text-xs font-medium text-blue-300 border border-blue-700/30 rounded-lg py-1.5 text-center hover:bg-blue-900/30 transition-colors"
-          >
-            Doctor View
-          </Link>
-        </div>
-        <button 
-          onClick={handleLogout}
-          disabled={loggingOut}
-          className="w-full flex items-center gap-2 text-xs text-blue-400 hover:text-white px-1 py-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loggingOut ? (
-            <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Logging out...
-            </>
-          ) : (
-            <>
-              <LogOut className="w-3.5 h-3.5" /> Sign Out
-            </>
-          )}
-        </button>
-      </div>
-    </>
-  );
+  // ─── New Support/Query section ───
+  const supportItems = [
+    { 
+      name: "Raise Query", 
+      href: "/doctor/raise-query", 
+      icon: HelpCircle 
+    },
+    { 
+      name: "My Queries", 
+      href: "/doctor/queries", 
+      icon: MessageCircle,
+      badge: pendingQueriesCount > 0 ? pendingQueriesCount : null
+    },
+  ];
 
   return (
-    <>
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex w-[260px] h-screen bg-[#0A1628] border-r border-[#1a2e44] flex-col fixed left-0 top-0 z-40 shadow-xl">
-        <SidebarContent />
-      </aside>
+    <aside className="w-64 h-screen bg-[var(--color-doctor-sidebar)] text-white fixed left-0 top-0 flex flex-col border-r border-white/5 z-50">
+      {/* Logo */}
+      <div className="p-6 pb-8">
+        <Link href="/" className="block w-fit">
+          <h1 className="font-fraunces text-2xl font-bold hover:text-white/90 transition-colors">Family Health<span className="text-white">●</span></h1>
+        </Link>
+      </div>
 
-      {/* Mobile Sidebar */}
-      {isMobileOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setIsMobileOpen(false)} />
-          <aside className="fixed left-0 top-0 h-full w-[280px] bg-[#0A1628] border-r border-[#1a2e44] shadow-2xl overflow-y-auto animate-slide-in">
-            <div className="p-4 border-b border-[#1a2e44] flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-red-500/20">
-                  F
-                </div>
-                <div>
-                  <p className="text-base font-bold text-white">FamilyHealth</p>
-                  <p className="text-[11px] font-semibold tracking-widest text-blue-300 uppercase">Admin Console</p>
-                </div>
+      {/* Profile Card */}
+      <div className="px-4 mb-6">
+        <div className="bg-white/5 rounded-2xl p-4 border border-white/10 flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[var(--color-pulse-red)] flex items-center justify-center font-bold text-sm shrink-0">
+            {loading ? 'D' : getInitials(doctorData?.fullName || 'Dr. Doctor')}
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <h3 className="font-bold text-sm truncate">
+              {loading ? 'Loading...' : doctorData?.fullName || 'Dr. Doctor'}
+            </h3>
+            <p className="text-white/50 text-xs truncate mb-2">
+              {loading ? '...' : `${doctorData?.specialty || 'General'} · ${doctorData?.city || 'Your City'}`}
+            </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1 text-xs font-medium text-[var(--color-warm-amber)]">
+                <Star size={12} fill="currentColor" /> {doctorData?.rating || 0} <span className="text-white/50">({doctorData?.reviewCount || 0})</span>
               </div>
-              <button onClick={() => setIsMobileOpen(false)} className="text-blue-300 hover:text-white">
-                <X className="w-6 h-6" />
-              </button>
+              <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full text-white/80">
+                {doctorData?.plan || 'Free'} Plan
+              </span>
             </div>
-            <div className="p-3">
-              <SidebarContent />
-            </div>
-          </aside>
+          </div>
         </div>
-      )}
-    </>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+        {/* Main Nav Items */}
+        {navItems.map((item) => {
+          const isActive = pathname === item.href || (pathname?.startsWith(item.href) && item.href !== '/doctor');
+          const Icon = item.icon;
+          
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium
+                ${isActive 
+                  ? "bg-[var(--color-doctor-sidebar-active)] text-white" 
+                  : "text-[var(--color-doctor-sidebar-text)] hover:bg-white/5 hover:text-white"
+                }`}
+            >
+              <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+              <span className="flex-1">{item.name}</span>
+              {item.badge && (
+                <span className="bg-[var(--color-pulse-red)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {item.badge}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+
+        {/* ─── Divider ─── */}
+        <div className="my-4 border-t border-white/10" />
+
+        {/* ─── Support Section Title ─── */}
+        <div className="px-4 py-2">
+          <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest">Support</p>
+        </div>
+
+        {/* ─── Support Nav Items ─── */}
+        {supportItems.map((item) => {
+          const isActive = pathname === item.href || pathname?.startsWith(item.href);
+          const Icon = item.icon;
+          
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-sm font-medium
+                ${isActive 
+                  ? "bg-[var(--color-doctor-sidebar-active)] text-white" 
+                  : "text-[var(--color-doctor-sidebar-text)] hover:bg-white/5 hover:text-white"
+                }`}
+            >
+              <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+              <span className="flex-1">{item.name}</span>
+              {item.badge && (
+                <span className="bg-[var(--color-pulse-red)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  {item.badge}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Bottom Actions */}
+      <div className="p-4 space-y-4">
+        {/* Upgrade Card */}
+        <div className="bg-gradient-to-br from-white/10 to-transparent rounded-2xl p-4 border border-white/10 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-2 opacity-10">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
+          <div className="flex items-center gap-2 text-[var(--color-warm-amber)] mb-1">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 22 12 2l10 20-10-4z"/></svg>
+            <span className="font-bold text-sm">Go Premium</span>
+          </div>
+          <p className="text-white/50 text-xs mb-3 pr-4 leading-relaxed">
+            3x more bookings + top search placement
+          </p>
+          <Link href="/doctor/plans" className="block text-center w-full bg-[var(--color-warm-amber)] text-[var(--color-navy)] text-sm font-bold py-2 rounded-lg hover:bg-opacity-90 transition-opacity">
+            Upgrade Now
+          </Link>
+        </div>
+
+        <div className="space-y-1">
+          <Link href="/dashboard" className="flex items-center gap-3 px-4 py-2 text-xs text-[var(--color-doctor-sidebar-text)] hover:text-white transition-colors rounded-lg hover:bg-white/5">
+            <ArrowLeft size={14} />
+            View patient side
+          </Link>
+          <button 
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="w-full flex items-center gap-3 px-4 py-2 text-xs text-[var(--color-doctor-sidebar-text)] hover:text-white transition-colors rounded-lg hover:bg-white/5 disabled:opacity-50"
+          >
+            {loggingOut ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Logging out...
+              </>
+            ) : (
+              <>
+                <LogOut size={14} />
+                Sign Out
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </aside>
   );
 }
