@@ -79,6 +79,7 @@ export async function GET(request) {
 }
 
 // POST: Create a new query
+// POST: Create a new query
 export async function POST(request) {
   try {
     const auth = await getAuthenticatedUser(request);
@@ -123,22 +124,33 @@ export async function POST(request) {
       );
     }
 
-    // Create query
+    // Prepare attachments - ensure they're properly formatted
+    const formattedAttachments = attachments && Array.isArray(attachments) 
+      ? attachments.map(file => ({
+          name: file.name || 'file',
+          url: file.url || '',
+          size: file.size || 0,
+          type: file.type || 'application/octet-stream',
+          publicId: file.publicId || '',
+        }))
+      : [];
+
+    // Create query with properly formatted data
     const query = new Query({
       doctorId: doctor._id,
-      doctorName: doctor.name,
+      doctorName: doctor.name || doctor.fullName || 'Doctor',
       doctorEmail: doctor.email,
-      subject,
-      message,
+      subject: subject.trim(),
+      message: message.trim(),
       category: category || "general",
       priority: priority || "medium",
       status: "open",
-      attachments: attachments || [],
+      attachments: formattedAttachments,
       conversation: [
         {
           sender: "doctor",
-          message,
-          attachments: attachments || [],
+          message: message.trim(),
+          attachments: formattedAttachments,
           sentAt: new Date(),
         },
       ],
@@ -153,6 +165,12 @@ export async function POST(request) {
     }, { status: 201 });
   } catch (error) {
     console.error("Error creating query:", error);
+    
+    // Log the validation errors details
+    if (error.name === 'ValidationError') {
+      console.error('Validation errors:', JSON.stringify(error.errors, null, 2));
+    }
+    
     return NextResponse.json(
       { error: error.message || "Failed to create query" },
       { status: 500 }

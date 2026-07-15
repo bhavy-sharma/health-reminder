@@ -1,5 +1,42 @@
-// models/Query.js
 import mongoose from "mongoose";
+
+const AttachmentSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
+  url: {
+    type: String,
+    required: true,
+  },
+  size: {
+    type: Number,
+  },
+  type: {
+    type: String,
+  },
+  publicId: {
+    type: String,
+  },
+});
+
+const ConversationMessageSchema = new mongoose.Schema({
+  sender: {
+    type: String,
+    enum: ["doctor", "admin"],
+    required: true,
+  },
+  message: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  attachments: [AttachmentSchema],
+  sentAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
 
 const QuerySchema = new mongoose.Schema(
   {
@@ -55,14 +92,7 @@ const QuerySchema = new mongoose.Schema(
       default: "open",
       index: true,
     },
-    attachments: [
-      {
-        name: String,
-        url: String,
-        size: Number,
-        type: String,
-      },
-    ],
+    attachments: [AttachmentSchema],
     adminReply: {
       message: {
         type: String,
@@ -76,32 +106,7 @@ const QuerySchema = new mongoose.Schema(
         ref: "User",
       },
     },
-    conversation: [
-      {
-        sender: {
-          type: String,
-          enum: ["doctor", "admin"],
-          required: true,
-        },
-        message: {
-          type: String,
-          required: true,
-          trim: true,
-        },
-        attachments: [
-          {
-            name: String,
-            url: String,
-            size: Number,
-            type: String,
-          },
-        ],
-        sentAt: {
-          type: Date,
-          default: Date.now,
-        },
-      },
-    ],
+    conversation: [ConversationMessageSchema],
     resolvedAt: {
       type: Date,
     },

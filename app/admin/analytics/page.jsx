@@ -1,4 +1,5 @@
-'use client';
+// app/admin/analytics/page.jsx
+"use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -23,11 +24,9 @@ import {
   PieChart, Pie, Cell,
 } from 'recharts';
 import AdminSidebar from '@/components/admin/Sidebar';
-import { useRouter } from 'next/navigation';
 
 // ── Main ───────────────────────────────────────────────────
 export default function AdminAnalyticsPage() {
-  const router = useRouter();
   const [active, setActive] = useState('analytics');
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -36,10 +35,9 @@ export default function AdminAnalyticsPage() {
   const [data, setData] = useState({
     statCards: [],
     userGrowth: [],
-    revenue: [],
-    planDistribution: [],
+    monthlyRevenue: [],
+    doctorPlanDistribution: [],
     appointmentsByDay: [],
-    topSpecialties: [],
   });
 
   // Icon mapping
@@ -48,6 +46,16 @@ export default function AdminAnalyticsPage() {
     Activity: Activity,
     IndianRupee: IndianRupee,
     CalendarCheck: CalendarCheck,
+  };
+
+  // Format currency without "L"
+  const formatCurrency = (value) => {
+    if (value >= 100000) {
+      return `₹${(value / 100000).toFixed(1)}L`;
+    } else if (value >= 1000) {
+      return `₹${(value / 1000).toFixed(1)}k`;
+    }
+    return `₹${value}`;
   };
 
   // Fetch analytics data
@@ -62,14 +70,12 @@ export default function AdminAnalyticsPage() {
 
       const response = await fetch('/api/admin/analytics');
       
-      // Check if response is ok
       if (!response.ok) {
         let errorMessage = 'Failed to fetch analytics';
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorData.message || errorMessage;
         } catch (e) {
-          // If response is not JSON
           errorMessage = `Server error (${response.status})`;
         }
         throw new Error(errorMessage);
@@ -137,7 +143,7 @@ export default function AdminAnalyticsPage() {
     );
   }
 
-  // Error state with better UI
+  // Error state
   if (error) {
     return (
       <div className="min-h-screen bg-[#F5F5F2] flex">
@@ -217,7 +223,7 @@ export default function AdminAnalyticsPage() {
             </p>
           </div>
 
-          {/* Stat cards - Only render if data exists */}
+          {/* ─── Stat Cards ─── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {data.statCards && data.statCards.length > 0 ? (
               data.statCards.map((stat) => {
@@ -247,8 +253,7 @@ export default function AdminAnalyticsPage() {
             )}
           </div>
 
-          {/* Rest of the charts... (same as before) */}
-          {/* User Growth */}
+          {/* ─── User Growth ─── */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
             <h2 className="text-lg font-bold text-gray-900">User Growth</h2>
             <p className="text-sm text-gray-400 mb-5">Patients and doctors registered — last 6 months</p>
@@ -280,20 +285,76 @@ export default function AdminAnalyticsPage() {
             </div>
           </div>
 
-          {/* Revenue + Plan Distribution */}
-          <div className="grid grid-cols-1 gap-4">
-            {/* Revenue Section - Temporarily hidden until real analytics are implemented
+          {/* ─── Doctor Plan Distribution + Monthly Revenue ─── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Doctor Plan Distribution - Donut Chart */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
-              <h2 className="text-lg font-bold text-gray-900">Revenue</h2>
-              <p className="text-sm text-gray-400 mb-4">Monthly doctor subscription revenue</p>
-              <div className="h-[180px] sm:h-[220px]">
-                {data.revenue && data.revenue.length > 0 ? (
+              <h2 className="text-lg font-bold text-gray-900">Doctor Plan Distribution</h2>
+              <p className="text-sm text-gray-400 mb-4">Free vs Pro vs Premium</p>
+              <div className="flex-1 flex items-center justify-center h-[200px] sm:h-[240px]">
+                {data.doctorPlanDistribution && data.doctorPlanDistribution.length > 0 && 
+                 data.doctorPlanDistribution.some(d => d.value > 0) ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data.revenue} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} barSize={36}>
+                    <PieChart>
+                      <Pie
+                        data={data.doctorPlanDistribution}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={55}
+                        outerRadius={85}
+                        paddingAngle={3}
+                        dataKey="value"
+                        startAngle={90}
+                        endAngle={-270}
+                        label={({ name, percent }) => percent > 0 ? `${name} ${(percent * 100).toFixed(0)}%` : ''}
+                        labelLine={false}
+                      >
+                        {data.doctorPlanDistribution.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(v, name) => [`${v} doctors`, name]} 
+                        contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: 13 }} 
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="text-gray-400 text-sm">No plan data available</div>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-5 mt-2">
+                {data.doctorPlanDistribution && data.doctorPlanDistribution.map(({ name, value, color }) => (
+                  <span key={name} className="flex items-center gap-1.5 text-xs text-gray-600">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
+                    {name}: {value}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Monthly Revenue - Bar Chart */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
+              <h2 className="text-lg font-bold text-gray-900">Monthly Revenue</h2>
+              <p className="text-sm text-gray-400 mb-4">Revenue from subscriptions & plan upgrades</p>
+              <div className="h-[200px] sm:h-[240px]">
+                {data.monthlyRevenue && data.monthlyRevenue.length > 0 && 
+                 data.monthlyRevenue.some(d => d.value > 0) ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data.monthlyRevenue} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} barSize={36}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
                       <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                      <YAxis tickFormatter={(v) => `₹${v / 1000}k`} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={48} />
-                      <Tooltip formatter={(v) => [`₹${(v / 1000).toFixed(0)}k`, 'Revenue']} contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: 13 }} />
+                      <YAxis 
+                        tickFormatter={(v) => v >= 1000 ? `₹${(v / 1000).toFixed(1)}k` : `₹${v}`} 
+                        tick={{ fontSize: 11, fill: '#9ca3af' }} 
+                        axisLine={false} 
+                        tickLine={false} 
+                        width={48} 
+                      />
+                      <Tooltip 
+                        formatter={(v) => [`₹${v.toLocaleString()}`, 'Revenue']} 
+                        contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: 13 }} 
+                      />
                       <Bar dataKey="value" fill="#10b981" radius={[6, 6, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
@@ -304,105 +365,29 @@ export default function AdminAnalyticsPage() {
                 )}
               </div>
             </div>
-            */}
-
-            {/* Donut chart */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6 flex flex-col">
-              <h2 className="text-lg font-bold text-gray-900">Doctor Plan Distribution</h2>
-              <p className="text-sm text-gray-400 mb-4">Free vs Pro vs Premium</p>
-              <div className="flex-1 flex items-center justify-center h-[180px] sm:h-[200px]">
-                {data.planDistribution && data.planDistribution.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={data.planDistribution}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={55}
-                        outerRadius={80}
-                        paddingAngle={3}
-                        dataKey="value"
-                        startAngle={90}
-                        endAngle={-270}
-                      >
-                        {data.planDistribution.map((entry, i) => (
-                          <Cell key={i} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(v, n) => [v, n]} contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: 13 }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="text-gray-400 text-sm">No plan data available</div>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-5 mt-2">
-                {data.planDistribution && data.planDistribution.map(({ name, value, color }) => (
-                  <span key={name} className="flex items-center gap-1.5 text-xs text-gray-600">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: color }} />
-                    {name} {value}
-                  </span>
-                ))}
-              </div>
-            </div>
           </div>
 
-          {/* Appointments by Day + Top Specialties */}
-          <div className="grid grid-cols-1 gap-4">
-            {/* Appointments by Day Section - Temporarily hidden until real analytics are implemented
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
-              <h2 className="text-lg font-bold text-gray-900">Appointments by Day</h2>
-              <p className="text-sm text-gray-400 mb-4">Average weekly pattern</p>
-              <div className="h-[180px] sm:h-[220px]">
-                {data.appointmentsByDay && data.appointmentsByDay.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data.appointmentsByDay} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} barSize={36}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
-                      <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={36} />
-                      <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: 13 }} />
-                      <Bar dataKey="value" fill="#f59e0b" radius={[6, 6, 0, 0]} name="Appointments" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-400">
-                    No appointment data available
-                  </div>
-                )}
-              </div>
-            </div>
-            */}
-
-            {/* Top Specialties */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
-              <h2 className="text-lg font-bold text-gray-900">Top Specialty Demand</h2>
-              <p className="text-sm text-gray-400 mb-5">Total doctors by specialty</p>
-              <ul className="space-y-4">
-                {data.topSpecialties && data.topSpecialties.length > 0 ? (
-                  data.topSpecialties.map(({ rank, name, count }) => {
-                    const maxCount = data.topSpecialties[0]?.count || 1;
-                    return (
-                      <li key={name}>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-gray-400 w-4">{rank}</span>
-                            <span className="text-sm font-medium text-gray-800">{name}</span>
-                          </div>
-                          <span className="text-sm font-bold text-gray-900">{count.toLocaleString()}</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                            style={{ width: `${(count / maxCount) * 100}%` }}
-                          />
-                        </div>
-                      </li>
-                    );
-                  })
-                ) : (
-                  <li className="text-center text-gray-400 py-4 text-sm">No specialty data available</li>
-                )}
-              </ul>
+          {/* ─── Appointments by Day ─── */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
+            <h2 className="text-lg font-bold text-gray-900">Appointments by Day</h2>
+            <p className="text-sm text-gray-400 mb-4">Weekly appointment distribution</p>
+            <div className="h-[180px] sm:h-[220px]">
+              {data.appointmentsByDay && data.appointmentsByDay.length > 0 && 
+               data.appointmentsByDay.some(d => d.value > 0) ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.appointmentsByDay} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} barSize={36}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                    <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={36} />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: 13 }} />
+                    <Bar dataKey="value" fill="#f59e0b" radius={[6, 6, 0, 0]} name="Appointments" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-400">
+                  No appointment data available
+                </div>
+              )}
             </div>
           </div>
 

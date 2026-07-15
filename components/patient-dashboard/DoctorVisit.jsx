@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import toast, { Toaster } from 'react-hot-toast';
 import {
   FileText,
   Share2,
@@ -12,11 +14,13 @@ import {
   Stethoscope,
   AlertCircle,
   Loader2,
-  ChevronRight,
-  Users,
-  Pill,
-  HeartPulse,
   Clipboard,
+  MapPin,
+  Star,
+  Building,
+  Search,
+  ExternalLink,
+  Link2,
 } from 'lucide-react';
 import Sidebar from './Sidebar';
 
@@ -45,35 +49,43 @@ const getColorClass = (hex) => {
   return colorMap[hex] || 'bg-gray-500';
 };
 
-const specialties = [
-  'Cardiology', 'Neurology', 'Orthopedics', 'Dermatology',
-  'Pediatrics', 'General Medicine', 'Ophthalmology', 'Endocrinology',
-];
-
-const includeItems = [
-  { id: 'medicines',    label: 'Current medicines list',  recommended: true,  defaultChecked: true  },
-  { id: 'allergies',   label: 'Known allergies',          recommended: true,  defaultChecked: true  },
-  { id: 'lab3',        label: 'Last 3 lab reports',       recommended: true,  defaultChecked: true  },
-  { id: 'prescription',label: 'Last prescription',        recommended: true,  defaultChecked: true  },
-  { id: 'fullreport',  label: 'Complete report history',  recommended: false, defaultChecked: false },
-  { id: 'vaccination', label: 'Vaccination records',      recommended: false, defaultChecked: false },
-  { id: 'docnotes',    label: 'Previous doctor notes',    recommended: false, defaultChecked: false },
+// ─── Specialties ──────────────────────────────────────────────
+const SPECIALTIES = [
+  "Cardiologist", "Neurologist", "Orthopedic Surgeon", "Ophthalmologist",
+  "Pediatrician", "Diabetologist", "Dermatologist", "Psychiatrist",
+  "Gynecologist", "Urologist", "ENT Specialist", "General Physician",
+  "Oncologist", "Gastroenterologist", "Pulmonologist", "Nephrologist",
+  "Endocrinologist", "Rheumatologist", "Hematologist",
+  "Infectious Disease Specialist", "Geriatrician", "Anesthesiologist",
+  "Radiologist", "Pathologist", "Emergency Medicine Specialist",
+  "Sports Medicine Specialist", "Pain Management Specialist",
+  "Sleep Medicine Specialist", "Palliative Care Specialist",
+  "Nutritionist", "Physiotherapist", "Chiropractor", "Psychologist",
+  "Speech Therapist", "Occupational Therapist", "Audiologist",
+  "Dietitian", "Homeopath", "Ayurvedic Doctor", "Naturopath", "Acupuncturist"
 ];
 
 export default function DoctorVisitPrepPage() {
+  const router = useRouter();
   const [familyMembers, setFamilyMembers] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [specialty, setSpecialty] = useState('');
   const [doctorName, setDoctorName] = useState('');
-  const [specialty, setSpecialty] = useState('Cardiology');
   const [visitDate, setVisitDate] = useState('');
   const [visitTime, setVisitTime] = useState('');
   const [reason, setReason] = useState('');
   const [generating, setGenerating] = useState(false);
-  const [checked, setChecked] = useState(
-    Object.fromEntries(includeItems.map((i) => [i.id, i.defaultChecked]))
-  );
+  const [creatingLink, setCreatingLink] = useState(false);
+  const [shareableLink, setShareableLink] = useState(null);
+  const [userData, setUserData] = useState(null);
+
+  // Doctor recommendations state
+  const [doctors, setDoctors] = useState([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchFamilyData = async () => {
@@ -83,12 +95,45 @@ export default function DoctorVisitPrepPage() {
         if (!profileRes.ok) throw new Error('Failed to fetch profile');
         const profileData = await profileRes.json();
         const user = profileData.user;
-        
+        setUserData(user);
+
+        if (user?.address?.city) {
+          setUserLocation(user.address.city);
+        }
+
+        const familyId = user?.activeFamilyId?._id || user?.activeFamilyId;
         let allMembers = [];
 
-        if (user) {
+        if (familyId) {
+          // ─── Fetch family members from FamilyMember model ───
+          const membersRes = await fetch(`/api/family/members?familyId=${familyId}`);
+          if (membersRes.ok) {
+            const membersData = await membersRes.json();
+            const members = membersData.members || [];
+            
+            // Add all members from the FamilyMember model
+            members.forEach(member => {
+              const isYou = member.isPrimary === true;
+              allMembers.push({
+                _id: member._id, // This is the FamilyMember ID - CORRECT!
+                userId: isYou ? user._id : null,
+                name: isYou ? `${member.name} (You)` : member.name,
+                dateOfBirth: member.dateOfBirth,
+                gender: member.gender,
+                bloodGroup: member.bloodGroup,
+                avatarColor: member.avatarColor || '#6B7280',
+                allergies: member.allergies || [],
+                isPrimary: member.isPrimary || false,
+              });
+            });
+          }
+        }
+
+        // ─── Fallback: if no family members found, create one from user data ───
+        if (allMembers.length === 0 && user) {
           allMembers.push({
-            _id: user._id,
+            _id: user._id, // Fallback to user ID
+            userId: user._id,
             name: `${user.fullName} (You)`,
             dateOfBirth: user.profile?.dateOfBirth,
             gender: user.profile?.gender,
@@ -99,18 +144,6 @@ export default function DoctorVisitPrepPage() {
           });
         }
 
-        const familyId = user?.activeFamilyId?._id || user?.activeFamilyId;
-
-        if (familyId) {
-          const membersRes = await fetch(`/api/family/members?familyId=${familyId}`);
-          if (membersRes.ok) {
-            const membersData = await membersRes.json();
-            const members = membersData.members || [];
-            const otherMembers = members.filter(m => !m.isPrimary);
-            allMembers = [...allMembers, ...otherMembers];
-          }
-        }
-        
         setFamilyMembers(allMembers);
         if (allMembers.length > 0) {
           setSelectedMember(allMembers[0]);
@@ -118,6 +151,7 @@ export default function DoctorVisitPrepPage() {
       } catch (err) {
         console.error('Error fetching family data:', err);
         setError('Failed to load family members');
+        toast.error('Failed to load family members');
       } finally {
         setLoading(false);
       }
@@ -125,26 +159,166 @@ export default function DoctorVisitPrepPage() {
     fetchFamilyData();
   }, []);
 
-  const toggle = (id) => setChecked((prev) => ({ ...prev, [id]: !prev[id] }));
+  // Fetch doctors when specialty changes
+  useEffect(() => {
+    if (specialty) {
+      fetchDoctors();
+    } else {
+      setDoctors([]);
+    }
+  }, [specialty]);
 
-  const handleGeneratePDF = async () => {
-    setGenerating(true);
-    // Simulate PDF generation
-    setTimeout(() => {
-      setGenerating(false);
-      // In production, this would call an API to generate the PDF
-      alert('PDF generation would happen here!');
-    }, 2000);
+  const fetchDoctors = async () => {
+    try {
+      setLoadingDoctors(true);
+      const params = new URLSearchParams();
+
+      if (specialty) params.append('specialty', specialty);
+      if (userLocation) params.append('city', userLocation);
+      params.append('limit', '20');
+
+      const response = await fetch(`/api/doctors?${params}`);
+      const result = await response.json();
+
+      if (result.success) {
+        setDoctors(result.data.doctors || []);
+        if (result.data.doctors.length === 0) {
+          toast.error(`No ${specialty} doctors found${userLocation ? ` near ${userLocation}` : ''}`);
+        }
+      } else {
+        setDoctors([]);
+        toast.error(result.error || 'Failed to fetch doctors');
+      }
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+      setDoctors([]);
+      toast.error('Failed to fetch doctors. Please try again.');
+    } finally {
+      setLoadingDoctors(false);
+    }
   };
+
+  // ─── Handle Doctor Click ──────────────────────────────────
+  const handleDoctorClick = (doctorId) => {
+    router.push(`/find-doctors/${doctorId}`);
+  };
+
+  // ─── Create Shareable Link ──────────────────────────────────
+  const handleCreateShareableLink = async () => {
+    if (!selectedMember) {
+      toast.error('Please select a family member first');
+      return;
+    }
+
+    if (!visitDate) {
+      toast.error('Please select a visit date');
+      return;
+    }
+
+    setCreatingLink(true);
+    const toastId = toast.loading('Creating shareable link...');
+
+    try {
+      const familyId = userData?.activeFamilyId?._id || userData?.activeFamilyId;
+
+      if (!familyId) {
+        toast.error('No family found.', { id: toastId });
+        setCreatingLink(false);
+        return;
+      }
+
+      // ─── Use the FamilyMember ID (selectedMember._id) ───
+      const memberId = selectedMember._id;
+
+      const shareData = {
+        familyId: familyId,
+        memberId: memberId,
+        patient: {
+          name: selectedMember.name.replace(' (You)', ''),
+          age: calculateAge(selectedMember.dateOfBirth),
+          gender: selectedMember.gender || 'N/A',
+          bloodGroup: selectedMember.bloodGroup || 'N/A',
+          allergies: selectedMember.allergies || [],
+        },
+        doctor: {
+          name: doctors.length > 0 ? doctors[0].name : 'Not specified',
+          specialty: specialty || 'N/A',
+          hospital: doctors[0]?.hospital || 'N/A',
+          city: doctors[0]?.city || 'N/A',
+          consultationFee: doctors[0]?.consultationFee || 0,
+        },
+        visit: {
+          date: visitDate || 'Not specified',
+          time: visitTime || 'Not specified',
+          reason: reason || 'Not specified',
+        },
+        generatedAt: new Date().toISOString(),
+      };
+
+      const shareResponse = await fetch('/api/doctor-visit-pdf/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(shareData),
+      });
+
+      if (!shareResponse.ok) {
+        const errorData = await shareResponse.json();
+        throw new Error(errorData.error || 'Failed to create shareable link');
+      }
+
+      const shareResult = await shareResponse.json();
+      const shareId = shareResult.shareId;
+      const fullUrl = `${window.location.origin}/share/health-summary/${shareId}`;
+      setShareableLink(fullUrl);
+
+      await navigator.clipboard.writeText(fullUrl);
+      toast.success('Shareable link created and copied to clipboard!', { id: toastId });
+
+    } catch (error) {
+      console.error('Error creating shareable link:', error);
+      toast.error(`Failed to create shareable link: ${error.message}`, { id: toastId });
+    } finally {
+      setCreatingLink(false);
+    }
+  };
+
+  const filteredDoctors = doctors.filter(doctor =>
+    doctor.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    doctor.hospital?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    doctor.specialty?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    doctor.city?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#fff',
+            color: '#1a1a2e',
+            borderRadius: '12px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+          },
+          success: {
+            style: {
+              border: '1px solid #4ade80',
+            },
+          },
+          error: {
+            style: {
+              border: '1px solid #f87171',
+            },
+          },
+        }}
+      />
       <Sidebar />
 
       <main className="md:pl-[280px]">
         <div className="max-w-7xl mx-auto px-4 md:px-10 py-10 pt-16 md:pt-10">
 
-          {/* Header with Category Label */}
+          {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
             <div>
               <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-[#1E40AF] text-xs font-bold rounded-full tracking-wider uppercase">
@@ -155,7 +329,7 @@ export default function DoctorVisitPrepPage() {
                 Prepare for Doctor Visit
               </h1>
               <p className="text-gray-500 text-sm mt-1">
-                Generate a comprehensive health summary PDF for your next consultation
+                Share your health records with your doctor
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -190,11 +364,10 @@ export default function DoctorVisitPrepPage() {
                       <button
                         key={m._id}
                         onClick={() => setSelectedMember(m)}
-                        className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 py-5 transition-all ${
-                          active
+                        className={`relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 py-5 transition-all ${active
                             ? 'border-[#0D1B2A] bg-[#FAF8F5] shadow-md'
                             : 'border-gray-100 bg-white hover:border-gray-300 hover:shadow-sm'
-                        }`}
+                          }`}
                       >
                         <div className={`w-14 h-14 rounded-full ${getColorClass(m.avatarColor || '#6B7280')} flex items-center justify-center text-white text-xl font-bold shadow-sm`}>
                           {initials}
@@ -211,38 +384,141 @@ export default function DoctorVisitPrepPage() {
                 </div>
               </section>
 
-              {/* Step 2: Visit Details */}
+              {/* Step 2: Find a Doctor */}
               <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <h2 className="text-lg font-serif font-semibold text-gray-900 mb-5 flex items-center gap-2">
                   <span className="bg-[#0D1B2A] text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">2</span>
-                  Visit details
+                  Find a Doctor
                 </h2>
                 <div className="space-y-4">
 
+                  {/* Specialty Selection */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Doctor Name *</label>
-                    <input
-                      type="text"
-                      placeholder="e.g., Dr. Sharma"
-                      value={doctorName}
-                      onChange={(e) => setDoctorName(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0D1B2A] focus:border-transparent text-gray-900 bg-white placeholder-gray-400"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Specialty *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Select Specialty *</label>
                     <select
                       value={specialty}
                       onChange={(e) => setSpecialty(e.target.value)}
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0D1B2A] focus:border-transparent text-gray-900 bg-white"
                     >
-                      {specialties.map((s) => (
+                      <option value="">Select a specialty</option>
+                      {SPECIALTIES.map((s) => (
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
                   </div>
 
+                  {/* Doctor Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Doctor Name (Optional)</label>
+                    <input
+                      type="text"
+                      value={doctorName}
+                      onChange={(e) => setDoctorName(e.target.value)}
+                      placeholder="Search for a specific doctor..."
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0D1B2A] focus:border-transparent text-gray-900 bg-white"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">Type a doctor's name to filter the list below</p>
+                  </div>
+
+                  {/* Recommended Doctors */}
+                  {specialty && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                        Recommended {specialty} Doctors
+                        {userLocation && (
+                          <span className="text-xs text-gray-400 font-normal ml-2">
+                            near {userLocation}
+                          </span>
+                        )}
+                      </label>
+
+                      {loadingDoctors ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                        </div>
+                      ) : doctors.length > 0 ? (
+                        <div>
+                          <div className="relative mb-3">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="Search by name, hospital, or specialty..."
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0D1B2A] text-sm"
+                            />
+                          </div>
+
+                          <div className="max-h-60 overflow-y-auto space-y-2">
+                            {filteredDoctors.length === 0 ? (
+                              <p className="text-sm text-gray-400 text-center py-4">No doctors match your search</p>
+                            ) : (
+                              filteredDoctors.map((doctor) => (
+                                <div
+                                  key={doctor._id}
+                                  onClick={() => handleDoctorClick(doctor._id)}
+                                  className="w-full text-left p-3 rounded-lg border border-gray-100 hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer"
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <div className={`w-10 h-10 rounded-full ${getColorClass(doctor.avatarColor || '#6B7280')} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
+                                      {doctor.name?.charAt(0).toUpperCase() || 'D'}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center justify-between">
+                                        <p className="font-semibold text-gray-900 text-sm">{doctor.name}</p>
+                                        <span className="text-xs text-blue-600 flex items-center gap-1">
+                                          View Profile
+                                          <ExternalLink className="w-3 h-3" />
+                                        </span>
+                                      </div>
+                                      <p className="text-xs text-gray-500">{doctor.specialty}</p>
+                                      {doctor.hospital && (
+                                        <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
+                                          <Building className="w-3 h-3" />
+                                          {doctor.hospital}
+                                        </p>
+                                      )}
+                                      {doctor.city && (
+                                        <p className="text-xs text-gray-400 flex items-center gap-1">
+                                          <MapPin className="w-3 h-3" />
+                                          {doctor.city}
+                                        </p>
+                                      )}
+                                      <div className="flex items-center gap-3 mt-1">
+                                        {doctor.consultationFee > 0 && (
+                                          <span className="text-xs font-medium text-gray-700">
+                                            ₹{doctor.consultationFee} fee
+                                          </span>
+                                        )}
+                                        {doctor.experience > 0 && (
+                                          <span className="text-xs text-gray-500">
+                                            {doctor.experience} yrs exp
+                                          </span>
+                                        )}
+                                        {doctor.rating > 0 && (
+                                          <span className="text-xs text-amber-500 flex items-center gap-0.5">
+                                            <Star className="w-3 h-3 fill-amber-500" />
+                                            {doctor.rating}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-gray-50 rounded-lg p-4 text-center">
+                          <p className="text-sm text-gray-500">No {specialty} doctors found</p>
+                          <p className="text-xs text-gray-400 mt-1">Try selecting a different specialty</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Visit Date and Time */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">Date *</label>
@@ -276,14 +552,11 @@ export default function DoctorVisitPrepPage() {
                   </div>
                 </div>
               </section>
-
-
-
             </div>
 
             {/* ── Right column — Preview & Actions ── */}
             <div className="lg:sticky lg:top-10 space-y-4">
-              
+
               {/* Preview Card */}
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -325,42 +598,67 @@ export default function DoctorVisitPrepPage() {
                             {selectedMember.allergies && selectedMember.allergies.length > 0 ? selectedMember.allergies.join(', ') : 'None'}
                           </span>
                         </div>
-                        {doctorName && (
+                        {doctors.length > 0 && (
                           <div className="flex justify-between border-t border-gray-100 pt-2 mt-1">
                             <span className="text-gray-500">Doctor:</span>
-                            <span className="font-semibold text-gray-900 text-sm">{doctorName}</span>
+                            <span className="font-semibold text-gray-900 text-sm">{doctors[0].name}</span>
+                          </div>
+                        )}
+                        {visitDate && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Visit Date:</span>
+                            <span className="font-semibold text-gray-900 text-sm">{visitDate}</span>
                           </div>
                         )}
                       </div>
                     </>
                   )}
-
-
                 </div>
+
+                {/* Shareable Link Display */}
+                {shareableLink && (
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-xs font-medium text-blue-700 mb-1">Shareable Link:</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={shareableLink}
+                        readOnly
+                        className="flex-1 text-xs bg-white border border-gray-200 rounded px-2 py-1 truncate"
+                      />
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(shareableLink);
+                          toast.success('Link copied to clipboard!');
+                        }}
+                        className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded transition"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}
+
+              {/* Shareable Link Button */}
               <button
-                onClick={handleGeneratePDF}
-                disabled={generating || !doctorName || !visitDate}
+                onClick={handleCreateShareableLink}
+                disabled={creatingLink || !selectedMember || !visitDate}
                 className="w-full flex items-center justify-center gap-2 bg-[#0D1B2A] hover:bg-[#1a2e44] text-white font-semibold py-3.5 rounded-xl transition-colors text-sm shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {generating ? (
+                {creatingLink ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Generating PDF...
+                    Creating Link...
                   </>
                 ) : (
                   <>
-                    <FileText className="w-4 h-4" />
-                    Generate Health Summary PDF
+                    <Link2 className="w-4 h-4" />
+                    Create Shareable Link
                   </>
                 )}
-              </button>
-
-              <button className="w-full flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-700 font-medium py-3.5 rounded-xl border border-gray-200 shadow-sm transition-colors text-sm">
-                <Share2 className="w-4 h-4 text-gray-400" />
-                Create shareable link
               </button>
 
               <button className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-medium py-3.5 rounded-xl transition-colors text-sm shadow-sm">
@@ -375,7 +673,7 @@ export default function DoctorVisitPrepPage() {
                   Pro Tip:
                 </p>
                 <p className="mt-1 text-blue-600/80">
-                  Sharing health records with your doctor helps them make better-informed decisions about your care.
+                  Share the link with your doctor before the appointment so they can review your records in advance.
                 </p>
               </div>
             </div>

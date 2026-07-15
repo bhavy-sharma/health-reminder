@@ -118,7 +118,8 @@ const UserSchema = new mongoose.Schema(
       },
       bloodGroup: {
         type: String,
-        enum: ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"],
+        enum: ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-", ""],
+        default: "",
       },
       avatarColor: {
         type: String,

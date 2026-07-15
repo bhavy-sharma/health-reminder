@@ -59,6 +59,7 @@ export async function GET(request, { params }) {
 }
 
 // PUT: Reply to query (doctor adds to conversation)
+// PUT: Reply to query (doctor adds to conversation)
 export async function PUT(request, { params }) {
   try {
     const auth = await getAuthenticatedUser(request);
@@ -108,7 +109,7 @@ export async function PUT(request, { params }) {
       );
     }
 
-    // ─── FIX: Check if query is closed or resolved ───
+    // Check if query is closed or resolved
     if (query.status === "closed") {
       return NextResponse.json(
         { 
@@ -129,15 +130,26 @@ export async function PUT(request, { params }) {
       );
     }
 
+    // Format attachments
+    const formattedAttachments = attachments && Array.isArray(attachments) 
+      ? attachments.map(file => ({
+          name: file.name || 'file',
+          url: file.url || '',
+          size: file.size || 0,
+          type: file.type || 'application/octet-stream',
+          publicId: file.publicId || '',
+        }))
+      : [];
+
     // Add to conversation
     query.conversation.push({
       sender: "doctor",
-      message,
-      attachments: attachments || [],
+      message: message.trim(),
+      attachments: formattedAttachments,
       sentAt: new Date(),
     });
 
-    // If query was resolved/closed, reopen it (but only if not closed)
+    // If query was resolved, reopen it
     if (query.status === "resolved") {
       query.status = "open";
     }

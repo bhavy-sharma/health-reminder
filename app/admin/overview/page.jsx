@@ -17,8 +17,8 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import {
-  AreaChart,
-  Area,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
@@ -42,17 +42,27 @@ export default function AdminOverviewPage() {
   const [data, setData] = useState({
     stats: [],
     alerts: [],
-    revenue: [],
+    monthlyRevenue: [], // Changed from 'revenue' to 'monthlyRevenue'
     healthStats: [],
     newPatients: [],
     pendingDoctors: [],
     settings: { showPlatformHealth: false },
   });
   
+  // ─── Format currency for display ───
+  const formatCurrency = (value) => {
+    if (value === undefined || value === null || value === 0) return '₹0';
+    if (value >= 100000) {
+      return `₹${(value / 100000).toFixed(1)}L`;
+    } else if (value >= 1000) {
+      return `₹${(value / 1000).toFixed(1)}k`;
+    }
+    return `₹${value}`;
+  };
+
   const handleTogglePlatformHealth = async () => {
     try {
       const newValue = !data.settings?.showPlatformHealth;
-      // Optimistically update
       setData(prev => ({
         ...prev,
         settings: { ...prev.settings, showPlatformHealth: newValue }
@@ -69,7 +79,6 @@ export default function AdminOverviewPage() {
     } catch (err) {
       console.error(err);
       toast.error('Could not update setting');
-      // Revert on error
       setData(prev => ({
         ...prev,
         settings: { ...prev.settings, showPlatformHealth: !prev.settings.showPlatformHealth }
@@ -111,7 +120,6 @@ export default function AdminOverviewPage() {
   // Get consistent color for a name
   const getAvatarColor = (name) => {
     if (!name) return 'bg-gray-500';
-    // Use the name to deterministically pick a color
     const index = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return avatarColors[index % avatarColors.length];
   };
@@ -125,6 +133,14 @@ export default function AdminOverviewPage() {
       .join('')
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  // ─── Format stat card value ───
+  const formatStatValue = (stat) => {
+    if (stat.label === 'Monthly Revenue' && typeof stat.value === 'number') {
+      return formatCurrency(stat.value);
+    }
+    return stat.value;
   };
 
   // Fetch overview data
@@ -331,7 +347,9 @@ export default function AdminOverviewPage() {
                       <TrendingUp className="w-3 h-3" />{stat.growth || '0%'}
                     </span>
                   </div>
-                  <p className="text-xl sm:text-2xl font-bold text-gray-900">{stat.value}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-gray-900">
+                    {stat.label === 'Monthly Revenue' ? formatCurrency(stat.value) : stat.value}
+                  </p>
                   <p className="text-xs sm:text-sm font-medium text-gray-700 mt-0.5">{stat.label}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{stat.sub}</p>
                 </div>
@@ -339,73 +357,62 @@ export default function AdminOverviewPage() {
             })}
           </div>
 
-          {/* Revenue chart + Platform Health */}
-          <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-4">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
-              <h2 className="text-lg font-bold text-gray-900">Platform Revenue</h2>
-              <p className="text-sm text-gray-400 mb-5">Doctor subscription income — last 6 months</p>
-              <div className="h-[180px] sm:h-[220px]">
-                {data.revenue && data.revenue.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data.revenue} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%"  stopColor="#10b981" stopOpacity={0.15} />
-                          <stop offset="95%" stopColor="#10b981" stopOpacity={0}    />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                      <XAxis 
-                        dataKey="month" 
-                        tick={{ fontSize: 12, fill: '#9ca3af' }} 
-                        axisLine={false} 
-                        tickLine={false} 
-                      />
-                      <YAxis 
-                        tickFormatter={formatY} 
-                        tick={{ fontSize: 11, fill: '#9ca3af' }} 
-                        axisLine={false} 
-                        tickLine={false} 
-                        width={52} 
-                      />
-                      <Tooltip
-                        formatter={(v) => [`₹${(v / 1000).toFixed(0)}k`, 'Revenue']}
-                        contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: 13 }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="value" 
-                        stroke="#10b981" 
-                        strokeWidth={2.5} 
-                        fill="url(#revGrad)" 
-                        dot={false} 
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-                    No revenue data available
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Platform Health */}
-            <PlatformHealthCard 
-              healthStats={data.healthStats} 
-              rightElement={
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500 font-medium">Show on Homepage</span>
-                  <button 
-                    onClick={handleTogglePlatformHealth}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${data.settings?.showPlatformHealth ? 'bg-emerald-500' : 'bg-gray-300'}`}
-                  >
-                    <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${data.settings?.showPlatformHealth ? 'translate-x-4.5' : 'translate-x-1'}`} />
-                  </button>
+          {/* Monthly Revenue Chart */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
+            <h2 className="text-lg font-bold text-gray-900">Monthly Revenue</h2>
+            <p className="text-sm text-gray-400 mb-5">Revenue from subscriptions & plan upgrades</p>
+            <div className="h-[180px] sm:h-[220px]">
+              {data.monthlyRevenue && data.monthlyRevenue.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={data.monthlyRevenue} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} barSize={36}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                    <XAxis 
+                      dataKey="month" 
+                      tick={{ fontSize: 12, fill: '#9ca3af' }} 
+                      axisLine={false} 
+                      tickLine={false} 
+                    />
+                    <YAxis 
+                      tickFormatter={(v) => v >= 1000 ? `₹${(v / 1000).toFixed(1)}k` : `₹${v}`}
+                      tick={{ fontSize: 11, fill: '#9ca3af' }} 
+                      axisLine={false} 
+                      tickLine={false} 
+                      width={52} 
+                    />
+                    <Tooltip
+                      formatter={(v) => [`₹${v.toLocaleString()}`, 'Revenue']}
+                      contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: 13 }}
+                    />
+                    <Bar 
+                      dataKey="value" 
+                      fill="#10b981" 
+                      radius={[6, 6, 0, 0]} 
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+                  No revenue data available
                 </div>
-              }
-            />
+              )}
+            </div>
           </div>
+
+          {/* Platform Health */}
+          <PlatformHealthCard 
+            healthStats={data.healthStats} 
+            rightElement={
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 font-medium">Show on Homepage</span>
+                <button 
+                  onClick={handleTogglePlatformHealth}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${data.settings?.showPlatformHealth ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${data.settings?.showPlatformHealth ? 'translate-x-4.5' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            }
+          />
 
           {/* New Patients + Pending Verification */}
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

@@ -16,8 +16,8 @@ export async function GET(request) {
   try {
     console.log('Overview API: Starting request...');
     
-    // 1. Validate user role - ADMIN or STAFF only
-    const authResult = await validateUserRole(request, ['admin', 'staff']);
+    // 1. Validate user role - ADMIN only
+    const authResult = await validateUserRole(request, 'admin');
     
     if (!authResult.valid) {
       return NextResponse.json(
@@ -30,7 +30,7 @@ export async function GET(request) {
       );
     }
 
-    console.log('Overview API: Access granted to:', authResult.user?.email, 'Role:', authResult.user?.role);
+    console.log('Overview API: Access granted to:', authResult.user?.email);
 
     // 2. Connect to database
     await connectToDatabase();
@@ -43,14 +43,14 @@ export async function GET(request) {
     const [
       stats,
       alerts,
-      revenue,
+      monthlyRevenueData,
       healthStats,
       newPatients,
       pendingDoctors,
     ] = await Promise.all([
       getStats(),
       getAlerts(),
-      getRevenueData(period),
+      getMonthlyRevenueData(period), // New function for monthly revenue
       getHealthStats(),
       getNewPatients(),
       getPendingDoctors(),
@@ -68,7 +68,7 @@ export async function GET(request) {
       data: {
         stats,
         alerts,
-        revenue,
+        monthlyRevenue: monthlyRevenueData, // Changed from 'revenue' to 'monthlyRevenue'
         healthStats,
         newPatients,
         pendingDoctors,
@@ -84,7 +84,100 @@ export async function GET(request) {
   }
 }
 
-// Helper functions
+// ─── NEW: Get Monthly Revenue Data ───
+async function getMonthlyRevenueData(period = "month") {
+  try {
+    const months = period === "year" ? 12 : 6;
+    const data = [];
+
+    for (let i = months - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const monthName = date.toLocaleString('default', { month: 'short' });
+      
+      const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
+      const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+      let monthlyRevenue = 0;
+      
+      try {
+        // Try to get from Payment model first
+        const paymentResult = await Payment.aggregate([
+          {
+            $match: {
+              status: 'success',
+              createdAt: { $gte: startDate, $lte: endDate }
+            }
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: "$amount" }
+            }
+          }
+        ]);
+        
+        if (paymentResult.length > 0) {
+          monthlyRevenue = paymentResult[0].total;
+        }
+      } catch (error) {
+        console.log('Payment model not found, trying Subscription...');
+        
+        try {
+          // Fallback: try Subscription model
+          const subResult = await Subscription.aggregate([
+            {
+              $match: {
+                status: 'active',
+                startDate: { $gte: startDate, $lte: endDate }
+              }
+            },
+            {
+              $group: {
+                _id: null,
+                total: { $sum: "$amount" }
+              }
+            }
+          ]);
+          
+          if (subResult.length > 0) {
+            monthlyRevenue = subResult[0].total;
+          }
+        } catch (subError) {
+          // Final fallback: estimate from doctor plan data
+          const doctorCount = await Doctor.countDocuments({
+            'plan.type': { $ne: 'free' },
+            'plan.updatedAt': { $gte: startDate, $lte: endDate }
+          });
+          monthlyRevenue = doctorCount * 500; // Estimate
+        }
+      }
+
+      data.push({
+        month: monthName,
+        value: monthlyRevenue,
+      });
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error getting monthly revenue data:", error);
+    const months = period === "year" ? 12 : 6;
+    const data = [];
+    for (let i = months - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      data.push({
+        month: date.toLocaleString('default', { month: 'short' }),
+        value: 0,
+      });
+    }
+    return data;
+  }
+}
+
+// ─── Helper Functions ─────────────────────────────────────────
+
 async function getStats() {
   const [
     totalPatients,
@@ -158,7 +251,8 @@ async function getStats() {
       icon: "IndianRupee",
       iconBg: "bg-amber-50",
       iconColor: "text-amber-500",
-      value: `₹${formatCurrency(monthlyRevenue)}`,
+      // ─── FIX: Return raw number ───
+      value: monthlyRevenue,
       label: "Monthly Revenue",
       sub: `${new Date().toLocaleString('default', { month: 'long' })} ${new Date().getFullYear()}`,
       growth: `${revenueGrowth > 0 ? "+" : ""}${revenueGrowth}%`,
@@ -211,7 +305,6 @@ async function getAlerts() {
     });
   }
 
-  // If no alerts, add a success message
   if (alerts.length === 0) {
     alerts.push({
       icon: "ShieldCheck",
@@ -222,42 +315,6 @@ async function getAlerts() {
   }
 
   return alerts;
-}
-
-async function getRevenueData(period = "month") {
-  const months = period === "year" ? 12 : 6;
-  const data = [];
-  
-  for (let i = months - 1; i >= 0; i--) {
-    const date = new Date();
-    date.setMonth(date.getMonth() - i);
-    const month = date.toLocaleString('default', { month: 'short' });
-    
-    const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
-    const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-    
-    const revenue = await Payment.aggregate([
-      {
-        $match: {
-          status: "completed",
-          createdAt: { $gte: startDate, $lte: endDate },
-        },
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: "$amount" },
-        },
-      },
-    ]);
-
-    data.push({
-      month,
-      value: revenue.length > 0 ? revenue[0].total : 0,
-    });
-  }
-
-  return data;
 }
 
 async function getHealthStats() {
@@ -279,7 +336,6 @@ async function getHealthStats() {
 }
 
 async function getNewPatients(limit = 4) {
-  // Fetch from User model instead of FamilyMember
   const users = await User.find({ 
     role: 'patient',
     isVerified: true,
@@ -290,21 +346,16 @@ async function getNewPatients(limit = 4) {
     .select('fullName email mobile city createdAt families isVerified isSuspended')
     .lean();
 
-  console.log(`Found ${users.length} new patients from User model`);
-
   const patients = await Promise.all(
     users.map(async (user) => {
       let plan = 'Free';
-      let familyStatus = 'active';
       
-      // Get user's family info if they have one
       if (user.families && user.families.length > 0) {
         const activeFamily = user.families.find(f => f.isActive) || user.families[0];
         if (activeFamily) {
           const family = await Family.findById(activeFamily.familyId).lean();
           if (family) {
             plan = family.plan?.type || 'Free';
-            familyStatus = family.isActive ? 'active' : 'inactive';
           }
         }
       }
@@ -350,7 +401,8 @@ async function getPendingDoctors(limit = 3) {
   }));
 }
 
-// Utility functions
+// ─── Utility Functions ─────────────────────────────────────────
+
 async function getMonthlyRevenue(date = new Date()) {
   const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
   const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
@@ -358,7 +410,7 @@ async function getMonthlyRevenue(date = new Date()) {
   const result = await Payment.aggregate([
     {
       $match: {
-        status: "completed",
+        status: "success",
         createdAt: { $gte: startDate, $lte: endDate },
       },
     },
@@ -373,19 +425,8 @@ async function getMonthlyRevenue(date = new Date()) {
   return result.length > 0 ? result[0].total : 0;
 }
 
-
-
 function formatNumber(num) {
   if (num >= 1000) {
-    return (num / 1000).toFixed(1) + 'k';
-  }
-  return num.toString();
-}
-
-function formatCurrency(num) {
-  if (num >= 100000) {
-    return (num / 100000).toFixed(1) + 'L';
-  } else if (num >= 1000) {
     return (num / 1000).toFixed(1) + 'k';
   }
   return num.toString();
