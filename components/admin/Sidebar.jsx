@@ -31,7 +31,7 @@ const adminNav = {
     { key: 'reviews', label: 'Reviews', icon: Star, href: '/admin/reviews' },
   ],
   support: [
-    { key: 'queries', label: 'Doctor Queries', icon: MessageCircle, href: '/admin/queries' },
+    { key: 'queries', label: 'Queries', icon: MessageCircle, href: '/admin/queries' },
   ],
 };
 
@@ -272,7 +272,7 @@ export default function AdminSidebar({ active, setActive, isMobileOpen, setIsMob
             </p>
           </div>
         </div>
-        <div className="flex gap-2 mb-2">
+        {/* <div className="flex gap-2 mb-2">
           <Link 
             href="/patient/dashboard" 
             className="flex-1 text-xs font-medium text-blue-300 border border-blue-700/30 rounded-lg py-1.5 text-center hover:bg-blue-900/30 transition-colors"
@@ -285,7 +285,7 @@ export default function AdminSidebar({ active, setActive, isMobileOpen, setIsMob
           >
             Doctor View
           </Link>
-        </div>
+        </div> */}
         <button 
           onClick={handleLogout}
           disabled={loggingOut}

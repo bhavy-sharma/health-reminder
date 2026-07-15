@@ -18,7 +18,6 @@ export async function GET(request, { params }) {
 
     await connectToDatabase();
 
-    // ─── FIX: Await params ───
     const { id } = await params;
     const query = await Query.findById(id).lean();
 
@@ -55,7 +54,6 @@ export async function PUT(request, { params }) {
 
     await connectToDatabase();
 
-    // ─── FIX: Await params ───
     const { id } = await params;
     const body = await request.json();
     const { message, status, attachments } = body;
@@ -79,11 +77,24 @@ export async function PUT(request, { params }) {
     // Get admin user
     const admin = await User.findById(validation.user.userId);
 
-    // Add admin reply
+    // Format attachments
+    const formattedAttachments = attachments && Array.isArray(attachments) 
+      ? attachments.map(file => ({
+          name: file.name || 'file',
+          url: file.url || '',
+          size: file.size || 0,
+          type: file.type || 'application/octet-stream',
+          publicId: file.publicId || '',
+        }))
+      : [];
+
+    // Add admin reply to conversation
     query.conversation.push({
       sender: "admin",
-      message,
-      attachments: attachments || [],
+      senderId: validation.user.userId,
+      senderName: admin?.name || 'Admin',
+      message: message.trim(),
+      attachments: formattedAttachments,
       sentAt: new Date(),
     });
 
@@ -97,7 +108,7 @@ export async function PUT(request, { params }) {
 
     // Set admin reply
     query.adminReply = {
-      message,
+      message: message.trim(),
       repliedAt: new Date(),
       repliedBy: validation.user.userId,
     };
@@ -131,7 +142,6 @@ export async function PATCH(request, { params }) {
 
     await connectToDatabase();
 
-    // ─── FIX: Await params ───
     const { id } = await params;
     const body = await request.json();
     const { status } = body;

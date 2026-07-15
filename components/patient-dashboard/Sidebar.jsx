@@ -19,6 +19,8 @@ import {
     Calendar,
     UserCircle,
     HardDrive,
+    MessageCircle,  // Added for queries
+    PlusCircle,     // Added for raise query
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -41,6 +43,7 @@ const Sidebar = () => {
         percentageUsed: 0,
         plan: 'free',
     });
+    const [unreadQueries, setUnreadQueries] = useState(0);
 
     const colorMap = [
         'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-pink-500',
@@ -58,11 +61,24 @@ const Sidebar = () => {
         { icon: Stethoscope, label: 'Doctor Visit Prep', href: '/doctor-visit' },
         { icon: Search, label: 'Find Doctors', href: '/find-doctors' },
         { icon: Users, label: 'Family Members', href: '/family-members' },
+        // ─── Query Section ───
+        { 
+            icon: MessageCircle, 
+            label: 'My Queries', 
+            href: '/queries',
+            badge: unreadQueries > 0 ? unreadQueries : null,
+        },
+        { 
+            icon: PlusCircle, 
+            label: 'Raise Query', 
+            href: '/raise-query',
+        },
         { icon: UserCircle, label: 'My Profile', href: '/profile' },
     ];
 
     useEffect(() => {
         fetchData();
+        fetchUnreadQueries();
     }, []);
 
     const fetchData = async () => {
@@ -117,6 +133,21 @@ const Sidebar = () => {
             }
         } catch (error) {
             console.error('Error fetching storage:', error);
+        }
+    };
+
+    // ─── Fetch Unread Queries Count ───
+    const fetchUnreadQueries = async () => {
+        try {
+            const response = await fetch('/api/queries/unread-count');
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    setUnreadQueries(data.count || 0);
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching unread queries:', error);
         }
     };
 
@@ -228,20 +259,41 @@ const Sidebar = () => {
                 <ul className="space-y-1.5">
                     {menuItems.map((item, index) => {
                         const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+                        const isQuerySection = item.label === 'My Queries' || item.label === 'Raise Query';
+                        
                         return (
                             <li key={index}>
+                                {isQuerySection && index === 7 && (
+                                    <div className="relative my-3">
+                                        <div className="absolute inset-0 flex items-center">
+                                            <div className="w-full border-t border-white/5"></div>
+                                        </div>
+                                        <div className="relative flex justify-center">
+                                            <span className="px-3 text-[9px] font-bold uppercase tracking-widest text-blue-400/40 bg-[#0B1F4D]">
+                                                Support
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
                                 <Link
                                     href={item.href}
-                                    className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-300 font-medium ${isActive
+                                    className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-300 font-medium ${
+                                        isActive
                                             ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/25'
                                             : 'text-blue-100/70 hover:bg-white/5 hover:text-white hover:pl-5'
-                                        } ${item.badge ? 'relative' : ''}`}
+                                    } ${item.badge ? 'relative' : ''}`}
                                 >
                                     <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-blue-400'}`} />
                                     <span className="flex-1 text-sm">{item.label}</span>
                                     {item.badge && (
-                                        <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full ${isActive ? 'bg-white text-blue-900' : 'text-blue-300 bg-blue-950/50 border border-blue-900'
-                                            }`}>
+                                        <span className={`
+                                            px-2.5 py-0.5 text-[10px] font-bold rounded-full
+                                            ${isActive 
+                                                ? 'bg-white text-blue-900' 
+                                                : 'bg-blue-500 text-white border border-blue-400'
+                                            }
+                                            animate-pulse
+                                        `}>
                                             {item.badge}
                                         </span>
                                     )}
@@ -341,8 +393,9 @@ const Sidebar = () => {
 
             <aside
                 id="sidebar"
-                className={`w-[280px] h-screen bg-[#0D1B2A] border-r border-slate-800 flex flex-col fixed left-0 top-0 z-40 shadow-xl transition-transform duration-300 ease-in-out ${isMobile ? (isOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'
-                    }`}
+                className={`w-[280px] h-screen bg-[#0D1B2A] border-r border-slate-800 flex flex-col fixed left-0 top-0 z-40 shadow-xl transition-transform duration-300 ease-in-out ${
+                    isMobile ? (isOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'
+                }`}
             >
                 {sidebarContent}
             </aside>

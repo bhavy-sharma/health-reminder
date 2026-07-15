@@ -22,6 +22,7 @@ export async function GET(request) {
     const category = searchParams.get("category") || "all";
     const priority = searchParams.get("priority") || "all";
     const search = searchParams.get("search") || "";
+    const createdBy = searchParams.get("createdBy") || "all"; // 'doctor', 'patient', or 'all'
     const page = parseInt(searchParams.get("page")) || 1;
     const limit = parseInt(searchParams.get("limit")) || 20;
     const skip = (page - 1) * limit;
@@ -31,6 +32,7 @@ export async function GET(request) {
     if (status !== "all") query.status = status;
     if (category !== "all") query.category = category;
     if (priority !== "all") query.priority = priority;
+    if (createdBy !== "all") query.createdBy = createdBy;
 
     if (search) {
       query.$or = [
@@ -38,6 +40,8 @@ export async function GET(request) {
         { message: { $regex: search, $options: "i" } },
         { doctorName: { $regex: search, $options: "i" } },
         { doctorEmail: { $regex: search, $options: "i" } },
+        { patientName: { $regex: search, $options: "i" } },
+        { patientEmail: { $regex: search, $options: "i" } },
       ];
     }
 
@@ -69,8 +73,14 @@ export async function GET(request) {
       account: await Query.countDocuments({ category: "account" }),
       feature_request: await Query.countDocuments({ category: "feature_request" }),
       verification: await Query.countDocuments({ category: "verification" }),
-      patient: await Query.countDocuments({ category: "patient" }),
+      patient_care: await Query.countDocuments({ category: "patient_care" }),
       general: await Query.countDocuments({ category: "general" }),
+    };
+
+    // Get counts by creator type
+    const creatorCounts = {
+      doctor: await Query.countDocuments({ createdBy: "doctor" }),
+      patient: await Query.countDocuments({ createdBy: "patient" }),
     };
 
     return NextResponse.json({
@@ -82,6 +92,7 @@ export async function GET(request) {
         totalPages: Math.ceil(total / limit),
         counts,
         categoryCounts,
+        creatorCounts,
       },
     });
   } catch (error) {
