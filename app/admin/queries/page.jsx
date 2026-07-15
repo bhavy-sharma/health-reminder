@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Search, ChevronRight, Loader2, AlertCircle,
   Clock, CheckCircle, XCircle, MessageCircle,
-  Filter, ChevronDown, Eye, Reply
+  Filter, ChevronDown, Eye, Reply, Users, User
 } from 'lucide-react';
 import Link from 'next/link';
 import AdminSidebar from '@/components/admin/Sidebar';
@@ -19,14 +19,16 @@ export default function AdminQueriesPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
+  const [createdByFilter, setCreatedByFilter] = useState('all'); // New filter
   const [search, setSearch] = useState('');
   const [counts, setCounts] = useState({});
   const [categoryCounts, setCategoryCounts] = useState({});
+  const [creatorCounts, setCreatorCounts] = useState({});
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     fetchQueries();
-  }, [page, statusFilter, categoryFilter, priorityFilter, search]);
+  }, [page, statusFilter, categoryFilter, priorityFilter, createdByFilter, search]);
 
   const fetchQueries = async () => {
     try {
@@ -37,6 +39,7 @@ export default function AdminQueriesPage() {
         ...(statusFilter !== 'all' && { status: statusFilter }),
         ...(categoryFilter !== 'all' && { category: categoryFilter }),
         ...(priorityFilter !== 'all' && { priority: priorityFilter }),
+        ...(createdByFilter !== 'all' && { createdBy: createdByFilter }),
         ...(search && { search }),
       });
 
@@ -53,6 +56,7 @@ export default function AdminQueriesPage() {
         setTotalPages(result.data.totalPages || 1);
         setCounts(result.data.counts || {});
         setCategoryCounts(result.data.categoryCounts || {});
+        setCreatorCounts(result.data.creatorCounts || {});
       }
     } catch (error) {
       console.error('Error fetching queries:', error);
@@ -91,6 +95,23 @@ export default function AdminQueriesPage() {
     );
   };
 
+  const getCreatorBadge = (createdBy) => {
+    if (createdBy === 'doctor') {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+          <User className="w-3 h-3" /> Doctor
+        </span>
+      );
+    } else if (createdBy === 'patient') {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200">
+          <Users className="w-3 h-3" /> Patient
+        </span>
+      );
+    }
+    return null;
+  };
+
   if (loading && page === 1) {
     return (
       <div className="min-h-screen bg-[#F5F5F2] flex">
@@ -115,10 +136,21 @@ export default function AdminQueriesPage() {
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Doctor Queries</h1>
+              <h1 className="text-3xl font-bold text-gray-900">Queries Management</h1>
               <p className="text-gray-500 mt-1">
                 {counts.open || 0} open · {counts.in_progress || 0} in progress · {counts.resolved || 0} resolved
               </p>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <span className="flex items-center gap-1">
+                <User className="w-4 h-4 text-blue-500" />
+                Doctors: {creatorCounts.doctor || 0}
+              </span>
+              <span className="text-gray-300">|</span>
+              <span className="flex items-center gap-1">
+                <Users className="w-4 h-4 text-purple-500" />
+                Patients: {creatorCounts.patient || 0}
+              </span>
             </div>
           </div>
 
@@ -149,13 +181,22 @@ export default function AdminQueriesPage() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by subject, doctor name, or email..."
+                  placeholder="Search by subject, doctor name, patient name, or email..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0D1B2A] text-sm"
                 />
               </div>
               <div className="flex flex-wrap gap-3">
+                <select
+                  value={createdByFilter}
+                  onChange={(e) => setCreatedByFilter(e.target.value)}
+                  className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0D1B2A] bg-white text-sm"
+                >
+                  <option value="all">All Users</option>
+                  <option value="doctor">Doctors ({creatorCounts.doctor || 0})</option>
+                  <option value="patient">Patients ({creatorCounts.patient || 0})</option>
+                </select>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
@@ -201,7 +242,8 @@ export default function AdminQueriesPage() {
                 <thead className="bg-gray-50 border-b border-gray-100">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Subject</th>
-                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Doctor</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Sender</th>
+                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Priority</th>
                     <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
@@ -212,7 +254,7 @@ export default function AdminQueriesPage() {
                 <tbody className="divide-y divide-gray-50">
                   {queries.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-6 py-12 text-center text-gray-400">
+                      <td colSpan="8" className="px-6 py-12 text-center text-gray-400">
                         No queries found
                       </td>
                     </tr>
@@ -227,9 +269,16 @@ export default function AdminQueriesPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div>
-                            <p className="text-sm text-gray-900">{query.doctorName}</p>
-                            <p className="text-xs text-gray-400">{query.doctorEmail}</p>
+                            <p className="text-sm text-gray-900">
+                              {query.createdBy === 'doctor' ? query.doctorName : query.patientName}
+                            </p>
+                            <p className="text-xs text-gray-400">
+                              {query.createdBy === 'doctor' ? query.doctorEmail : query.patientEmail}
+                            </p>
                           </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {getCreatorBadge(query.createdBy)}
                         </td>
                         <td className="px-6 py-4">
                           <span className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded-full">

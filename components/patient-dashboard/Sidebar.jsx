@@ -19,7 +19,6 @@ import {
     Calendar,
     UserCircle,
     HardDrive,
-    CreditCard,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -60,7 +59,6 @@ const Sidebar = () => {
         { icon: Search, label: 'Find Doctors', href: '/find-doctors' },
         { icon: Users, label: 'Family Members', href: '/family-members' },
         { icon: UserCircle, label: 'My Profile', href: '/profile' },
-        { icon: CreditCard, label: 'Pricing', href: '/pricing' },
     ];
 
     useEffect(() => {
@@ -258,34 +256,29 @@ const Sidebar = () => {
             <div className="p-5 border-t border-white/10 space-y-4 bg-black/20">
                 {/* ─── User Storage Bar ─── */}
                 <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                    <div className="flex items-start justify-between mb-2">
-                        <div className="flex flex-col items-start gap-1">
-                            <div className="flex items-center gap-1.5">
-                                <HardDrive className="w-3.5 h-3.5 text-blue-400" />
-                                <h3 className="text-xs font-bold text-blue-200">
-                                    {getPlanDisplayName(userStorage.plan)}
-                                </h3>
-                            </div>
-                            <Link href="/pricing" className="text-[10px] text-amber-400 font-semibold hover:text-amber-300 hover:underline">
-                                Upgrade Plan &rarr;
-                            </Link>
+                    <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1.5">
+                            <HardDrive className="w-3.5 h-3.5 text-blue-400" />
+                            <h3 className="text-xs font-bold text-blue-200">
+                                {getPlanDisplayName(userStorage.plan)}
+                            </h3>
                         </div>
-                        <div className="flex flex-col items-end gap-1">
-                            <span className={`text-[10px] font-semibold ${
-                                userStorage.percentageUsed > 90 ? 'text-red-400' :
-                                userStorage.percentageUsed > 70 ? 'text-amber-400' :
-                                'text-blue-300/80'
-                            }`}>
-                                {userStorage.used.toFixed(2)} GB / {userStorage.limit} GB
-                            </span>
-                            <span className={`text-[9px] font-bold ${
-                                userStorage.percentageUsed > 90 ? 'text-red-400' :
-                                userStorage.percentageUsed > 70 ? 'text-amber-400' :
-                                'text-blue-300/60'
-                            }`}>
-                                {userStorage.percentageUsed.toFixed(2)}% used
-                            </span>
-                        </div>
+                        <span className={`text-[10px] font-semibold ${
+                            userStorage.percentageUsed > 90 ? 'text-red-400' :
+                            userStorage.percentageUsed > 70 ? 'text-amber-400' :
+                            'text-blue-300/80'
+                        }`}>
+                            {userStorage.used.toFixed(2)} GB / {userStorage.limit} GB
+                        </span>
+                    </div>
+                    <div className="flex items-center justify-end">
+                        <span className={`text-[9px] font-bold ${
+                            userStorage.percentageUsed > 90 ? 'text-red-400' :
+                            userStorage.percentageUsed > 70 ? 'text-amber-400' :
+                            'text-blue-300/60'
+                        }`}>
+                            {userStorage.percentageUsed.toFixed(2)}% used
+                        </span>
                     </div>
                     <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden mt-1">
                         <div

@@ -1,11 +1,11 @@
-// app/api/doctor/queries/route.js
+// app/api/patient/queries/route.js
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import { getAuthenticatedUser } from "@/lib/auth";
 import Query from "@/models/Query";
-import Doctor from "@/models/Doctor";
+import User from "@/models/User";
 
-// GET: Fetch doctor's queries
+// GET: Fetch patient's queries
 export async function GET(request) {
   try {
     const auth = await getAuthenticatedUser(request);
@@ -17,9 +17,9 @@ export async function GET(request) {
       );
     }
 
-    if (auth.role !== 'doctor') {
+    if (auth.role !== 'patient') {
       return NextResponse.json(
-        { error: "Access denied. Doctor access required." },
+        { error: "Access denied. Patient access required." },
         { status: 403 }
       );
     }
@@ -32,21 +32,21 @@ export async function GET(request) {
     const limit = parseInt(searchParams.get("limit")) || 10;
     const skip = (page - 1) * limit;
 
-    // Find doctor
-    let doctor = await Doctor.findOne({ email: auth.email });
-    if (!doctor) {
-      doctor = await Doctor.findById(auth.userId);
+    // Find patient
+    let patient = await User.findOne({ email: auth.email });
+    if (!patient) {
+      patient = await User.findById(auth.userId);
     }
 
-    if (!doctor) {
+    if (!patient) {
       return NextResponse.json(
-        { error: "Doctor profile not found" },
+        { error: "Patient profile not found" },
         { status: 404 }
       );
     }
 
     // Build query
-    const query = { doctorId: doctor._id };
+    const query = { patientId: patient._id };
     if (status !== "all") {
       query.status = status;
     }
@@ -70,7 +70,7 @@ export async function GET(request) {
       },
     });
   } catch (error) {
-    console.error("Error fetching queries:", error);
+    console.error("Error fetching patient queries:", error);
     return NextResponse.json(
       { error: error.message || "Failed to fetch queries" },
       { status: 500 }
@@ -90,9 +90,9 @@ export async function POST(request) {
       );
     }
 
-    if (auth.role !== 'doctor') {
+    if (auth.role !== 'patient') {
       return NextResponse.json(
-        { error: "Access denied. Doctor access required." },
+        { error: "Access denied. Patient access required." },
         { status: 403 }
       );
     }
@@ -110,15 +110,15 @@ export async function POST(request) {
       );
     }
 
-    // Find doctor
-    let doctor = await Doctor.findOne({ email: auth.email });
-    if (!doctor) {
-      doctor = await Doctor.findById(auth.userId);
+    // Find patient
+    let patient = await User.findOne({ email: auth.email });
+    if (!patient) {
+      patient = await User.findById(auth.userId);
     }
 
-    if (!doctor) {
+    if (!patient) {
       return NextResponse.json(
-        { error: "Doctor profile not found" },
+        { error: "Patient profile not found" },
         { status: 404 }
       );
     }
@@ -134,23 +134,22 @@ export async function POST(request) {
         }))
       : [];
 
-    // Create query with properly formatted data
+    // Create query with properly formatted data (matching doctor pattern)
     const query = new Query({
-      doctorId: doctor._id,
-      doctorName: doctor.name || doctor.fullName || 'Doctor',
-      doctorEmail: doctor.email,
-      doctorSpecialty: doctor.specialty || '',
-      doctorPhone: doctor.phone || '',
+      patientId: patient._id,
+      patientName: patient.name || patient.fullName || 'Patient',
+      patientEmail: patient.email,
+      patientPhone: patient.phone || '',
       subject: subject.trim(),
       message: message.trim(),
       category: category || "general",
       priority: priority || "medium",
       status: "open",
-      createdBy: "doctor", // ✅ Added this field
+      createdBy: "patient",
       attachments: formattedAttachments,
       conversation: [
         {
-          sender: "doctor",
+          sender: "patient",
           message: message.trim(),
           attachments: formattedAttachments,
           sentAt: new Date(),
@@ -166,7 +165,7 @@ export async function POST(request) {
       data: query,
     }, { status: 201 });
   } catch (error) {
-    console.error("Error creating query:", error);
+    console.error("Error creating patient query:", error);
     
     // Log the validation errors details
     if (error.name === 'ValidationError') {

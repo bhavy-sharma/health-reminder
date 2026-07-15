@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Send, Loader2, User, Shield, Clock, CheckCircle,
   XCircle, AlertCircle, MessageCircle, ChevronDown, Reply,
-  Paperclip, Image, File, Download, Eye, X, Upload, Trash2
+  Paperclip, Image, File, Download, Eye, X, Upload, Trash2,
+  Users
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import AdminSidebar from '@/components/admin/Sidebar';
@@ -89,8 +90,6 @@ export default function AdminQueryDetailPage() {
 
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('upload_preset', 'admin_queries');
-      formData.append('folder', 'admin_queries');
 
       const response = await fetch('/api/admin/upload', {
         method: 'POST',
@@ -237,6 +236,23 @@ export default function AdminQueryDetailPage() {
     );
   };
 
+  const getCreatorBadge = (createdBy) => {
+    if (createdBy === 'doctor') {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200">
+          <User className="w-3 h-3" /> Doctor
+        </span>
+      );
+    } else if (createdBy === 'patient') {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-purple-50 text-purple-600 border border-purple-200">
+          <Users className="w-3 h-3" /> Patient
+        </span>
+      );
+    }
+    return null;
+  };
+
   const formatFileSize = (bytes) => {
     if (!bytes) return 'Unknown';
     if (bytes < 1024) return bytes + ' B';
@@ -354,7 +370,7 @@ export default function AdminQueryDetailPage() {
               <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
               <p className="text-gray-500">Query not found</p>
               <button
-                onClick={() => router.back()}
+                onClick={() => router.push('/admin/queries')}
                 className="mt-4 px-4 py-2 bg-[#0D1B2A] text-white rounded-lg hover:bg-[#1a2e44]"
               >
                 Go Back
@@ -365,6 +381,33 @@ export default function AdminQueryDetailPage() {
       </div>
     );
   }
+
+  // Get sender info based on createdBy
+  const getSenderInfo = () => {
+    if (query.createdBy === 'doctor') {
+      return {
+        name: query.doctorName || 'Doctor',
+        email: query.doctorEmail || '',
+        role: 'doctor',
+        badge: getCreatorBadge('doctor')
+      };
+    } else if (query.createdBy === 'patient') {
+      return {
+        name: query.patientName || 'Patient',
+        email: query.patientEmail || '',
+        role: 'patient',
+        badge: getCreatorBadge('patient')
+      };
+    }
+    return {
+      name: 'Unknown',
+      email: '',
+      role: 'unknown',
+      badge: null
+    };
+  };
+
+  const senderInfo = getSenderInfo();
 
   return (
     <div className="min-h-screen bg-[#F5F5F2] flex">
@@ -378,7 +421,7 @@ export default function AdminQueryDetailPage() {
           <Toaster position="top-right" />
 
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push('/admin/queries')}
             className="flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Queries
@@ -392,12 +435,15 @@ export default function AdminQueryDetailPage() {
                   <h1 className="text-2xl font-bold text-gray-900">{query.subject}</h1>
                   {getPriorityBadge(query.priority)}
                 </div>
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex flex-wrap items-center gap-2 mt-2">
                   <span className="text-sm text-gray-500">From:</span>
-                  <span className="text-sm font-medium text-gray-900">{query.doctorName}</span>
-                  <span className="text-sm text-gray-400">({query.doctorEmail})</span>
+                  <span className="text-sm font-medium text-gray-900">{senderInfo.name}</span>
+                  <span className="text-sm text-gray-400">({senderInfo.email})</span>
+                  {senderInfo.badge && (
+                    <span className="ml-1">{senderInfo.badge}</span>
+                  )}
                 </div>
-                <div className="flex items-center gap-4 mt-3">
+                <div className="flex flex-wrap items-center gap-4 mt-3">
                   {getStatusBadge(query.status)}
                   <span className="text-sm text-gray-400">|</span>
                   <span className="text-sm text-gray-400">ID: #{query._id.slice(-6)}</span>
@@ -492,98 +538,122 @@ export default function AdminQueryDetailPage() {
             </div>
             <div className="p-6 max-h-[500px] overflow-y-auto space-y-4">
               {query.conversation && query.conversation.length > 0 ? (
-                query.conversation.map((msg, index) => (
-                  <div
-                    key={index}
-                    className={`flex ${msg.sender === 'admin' ? 'justify-end' : 'justify-start'}`}
-                  >
+                query.conversation.map((msg, index) => {
+                  // Determine sender display name
+                  let senderDisplayName = '';
+                  if (msg.sender === 'admin') {
+                    senderDisplayName = 'You (Admin)';
+                  } else if (msg.sender === 'doctor') {
+                    senderDisplayName = query.doctorName || 'Doctor';
+                  } else if (msg.sender === 'patient') {
+                    senderDisplayName = query.patientName || 'Patient';
+                  } else {
+                    senderDisplayName = msg.sender || 'Unknown';
+                  }
+
+                  return (
                     <div
-                      className={`max-w-[80%] rounded-2xl p-4 ${
-                        msg.sender === 'admin'
-                          ? 'bg-[#0D1B2A] text-white'
-                          : 'bg-gray-50 border border-gray-100 text-gray-900'
-                      }`}
+                      key={index}
+                      className={`flex ${msg.sender === 'admin' ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        {msg.sender === 'admin' ? (
-                          <Shield className="w-4 h-4 text-blue-400" />
-                        ) : (
-                          <User className="w-4 h-4" />
-                        )}
-                        <span className="text-xs font-medium opacity-70">
-                          {msg.sender === 'admin' ? 'You (Admin)' : query.doctorName}
-                        </span>
-                        <span className="text-[10px] opacity-50">
-                          {new Date(msg.sentAt).toLocaleString()}
-                        </span>
-                      </div>
-                      <p className={`text-sm ${msg.sender === 'admin' ? 'text-white/90' : 'text-gray-700'}`}>
-                        {msg.message}
-                      </p>
-                      
-                      {/* Attachments in conversation */}
-                      {msg.attachments?.length > 0 && (
-                        <div className="mt-3 space-y-2">
-                          {msg.attachments.map((att, i) => {
-                            const isImageFile = isImage(att.type);
-                            return (
-                              <div
-                                key={i}
-                                className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition ${
-                                  msg.sender === 'admin'
-                                    ? 'bg-white/10 hover:bg-white/20'
-                                    : 'bg-gray-100 hover:bg-gray-200'
-                                }`}
-                                onClick={() => openFileViewer(att)}
-                              >
-                                {isImageFile ? (
-                                  <div className="w-12 h-12 rounded overflow-hidden shrink-0">
-                                    <img
-                                      src={att.url}
-                                      alt={att.name}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  </div>
-                                ) : (
-                                  <div className={`w-12 h-12 rounded flex items-center justify-center shrink-0 ${
-                                    msg.sender === 'admin' ? 'bg-white/20' : 'bg-gray-200'
-                                  }`}>
-                                    {getFileIcon(att.type)}
-                                  </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs font-medium truncate ${
-                                    msg.sender === 'admin' ? 'text-white/90' : 'text-gray-700'
-                                  }`}>
-                                    {att.name}
-                                  </p>
-                                  <p className={`text-[10px] ${
-                                    msg.sender === 'admin' ? 'text-white/50' : 'text-gray-400'
-                                  }`}>
-                                    {formatFileSize(att.size)}
-                                  </p>
-                                </div>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openFileViewer(att);
-                                  }}
-                                  className={`p-1.5 rounded transition ${
-                                    msg.sender === 'admin'
-                                      ? 'hover:bg-white/20 text-white/70'
-                                      : 'hover:bg-gray-300 text-gray-500'
-                                  }`}
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                              </div>
-                            );
-                          })}
+                      <div
+                        className={`max-w-[80%] rounded-2xl p-4 ${
+                          msg.sender === 'admin'
+                            ? 'bg-[#0D1B2A] text-white'
+                            : msg.sender === 'doctor'
+                            ? 'bg-blue-50 border border-blue-100 text-gray-900'
+                            : 'bg-purple-50 border border-purple-100 text-gray-900'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          {msg.sender === 'admin' ? (
+                            <Shield className="w-4 h-4 text-blue-400" />
+                          ) : msg.sender === 'doctor' ? (
+                            <User className="w-4 h-4 text-blue-500" />
+                          ) : (
+                            <Users className="w-4 h-4 text-purple-500" />
+                          )}
+                          <span className={`text-xs font-medium ${
+                            msg.sender === 'admin' ? 'opacity-70' : 'opacity-80'
+                          }`}>
+                            {senderDisplayName}
+                          </span>
+                          <span className="text-[10px] opacity-50">
+                            {new Date(msg.sentAt).toLocaleString()}
+                          </span>
                         </div>
-                      )}
+                        <p className={`text-sm ${
+                          msg.sender === 'admin' ? 'text-white/90' : 'text-gray-700'
+                        }`}>
+                          {msg.message}
+                        </p>
+                        
+                        {/* Attachments in conversation */}
+                        {msg.attachments?.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {msg.attachments.map((att, i) => {
+                              const isImageFile = isImage(att.type);
+                              return (
+                                <div
+                                  key={i}
+                                  className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition ${
+                                    msg.sender === 'admin'
+                                      ? 'bg-white/10 hover:bg-white/20'
+                                      : msg.sender === 'doctor'
+                                      ? 'bg-blue-100 hover:bg-blue-200'
+                                      : 'bg-purple-100 hover:bg-purple-200'
+                                  }`}
+                                  onClick={() => openFileViewer(att)}
+                                >
+                                  {isImageFile ? (
+                                    <div className="w-12 h-12 rounded overflow-hidden shrink-0">
+                                      <img
+                                        src={att.url}
+                                        alt={att.name}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className={`w-12 h-12 rounded flex items-center justify-center shrink-0 ${
+                                      msg.sender === 'admin' ? 'bg-white/20' : 'bg-white/50'
+                                    }`}>
+                                      {getFileIcon(att.type)}
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-xs font-medium truncate ${
+                                      msg.sender === 'admin' ? 'text-white/90' : 'text-gray-700'
+                                    }`}>
+                                      {att.name}
+                                    </p>
+                                    <p className={`text-[10px] ${
+                                      msg.sender === 'admin' ? 'text-white/50' : 'text-gray-400'
+                                    }`}>
+                                      {formatFileSize(att.size)}
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openFileViewer(att);
+                                    }}
+                                    className={`p-1.5 rounded transition ${
+                                      msg.sender === 'admin'
+                                        ? 'hover:bg-white/20 text-white/70'
+                                        : 'hover:bg-white/50 text-gray-500'
+                                    }`}
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <p className="text-center text-gray-400 py-6">No messages yet</p>
               )}
