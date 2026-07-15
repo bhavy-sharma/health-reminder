@@ -687,9 +687,9 @@ export default function AdminDoctorsPage() {
                 </span>
               </p>
             </div>
-            <button className="flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors">
+            {/* <button className="flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors">
               <Download className="w-4 h-4" /> Export CSV
-            </button>
+            </button> */}
           </div>
 
           {stats.pending > 0 && (

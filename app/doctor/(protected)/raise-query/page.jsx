@@ -1,12 +1,12 @@
-// app/doctor/(protected)/raise-query/page.jsx
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Send, X, Loader2, AlertCircle, CheckCircle,
   MessageCircle, HelpCircle, Shield, DollarSign, User,
-  Star, Zap, ChevronRight, Clock
+  Star, Zap, ChevronRight, Clock, Paperclip, Image, File,
+  Upload, Trash2
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -27,16 +27,23 @@ const priorities = [
   { value: 'urgent', label: 'Urgent', color: 'bg-red-50 text-red-600' },
 ];
 
+// File size limit: 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp', 'application/pdf'];
+
 export default function RaiseQueryPage() {
   const router = useRouter();
+  const fileInputRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
   const [formData, setFormData] = useState({
     subject: '',
     message: '',
     category: 'general',
     priority: 'medium',
   });
+  const [attachments, setAttachments] = useState([]);
   const [errors, setErrors] = useState({});
   const [recentQueries, setRecentQueries] = useState([]);
   const [fetchingQueries, setFetchingQueries] = useState(true);
@@ -68,6 +75,87 @@ export default function RaiseQueryPage() {
     }
   };
 
+  // ─── File Upload to Cloudinary ──────────────────────────
+  const handleFileUpload = async (file) => {
+    // Validate file type
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      toast.error('Only JPG, PNG, GIF, WEBP, and PDF files are allowed');
+      return;
+    }
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    // Check if already uploaded
+    if (attachments.some(a => a.name === file.name && a.size === file.size)) {
+      toast.error('This file is already attached');
+      return;
+    }
+
+    try {
+      setUploadingFiles(true);
+      const toastId = toast.loading(`Uploading ${file.name}...`);
+
+      // Create form data for Cloudinary upload
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'doctor_queries'); // You need to create this preset in Cloudinary
+      formData.append('folder', 'doctor_queries');
+
+      // Upload to Cloudinary via API route
+      const response = await fetch('/api/doctor/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+      if (result.success) {
+        const uploadedFile = {
+          name: result.data.originalName || file.name,
+          url: result.data.url,
+          size: file.size,
+          type: file.type,
+          publicId: result.data.publicId,
+        };
+
+        setAttachments(prev => [...prev, uploadedFile]);
+        toast.success(`${file.name} uploaded successfully`, { id: toastId });
+      } else {
+        throw new Error(result.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error(`Failed to upload ${file.name}: ${error.message}`);
+    } finally {
+      setUploadingFiles(false);
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const files = e.target.files;
+    if (files.length === 0) return;
+
+    // Handle multiple files
+    for (let i = 0; i < files.length; i++) {
+      handleFileUpload(files[i]);
+    }
+
+    // Reset input
+    e.target.value = '';
+  };
+
+  const removeAttachment = (index) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrors({});
@@ -94,10 +182,23 @@ export default function RaiseQueryPage() {
 
     try {
       setSubmitting(true);
+
+      // Prepare attachments data for API
+      const attachmentsData = attachments.map(a => ({
+        name: a.name,
+        url: a.url,
+        size: a.size,
+        type: a.type,
+        publicId: a.publicId,
+      }));
+
       const response = await fetch('/api/doctor/queries', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          attachments: attachmentsData,
+        }),
       });
 
       const result = await response.json();
@@ -113,6 +214,7 @@ export default function RaiseQueryPage() {
         category: 'general',
         priority: 'medium',
       });
+      setAttachments([]);
       await fetchRecentQueries();
 
       // Redirect to query history after 2 seconds
@@ -135,6 +237,16 @@ export default function RaiseQueryPage() {
       closed: 'bg-gray-50 text-gray-500 border-gray-200',
     };
     return styles[status] || styles.open;
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const isImage = (type) => {
+    return type && type.startsWith('image/');
   };
 
   return (
@@ -224,11 +336,83 @@ export default function RaiseQueryPage() {
               <p className="text-xs text-gray-400 mt-1">{formData.message.length}/5000 characters</p>
             </div>
 
+            {/* ─── File Upload Section ─── */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Attachments
+              </label>
+              
+              {/* Upload Button */}
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingFiles}
+                  className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors text-gray-600 hover:text-gray-900 disabled:opacity-50"
+                >
+                  {uploadingFiles ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4" />
+                  )}
+                  <span className="text-sm font-medium">
+                    {uploadingFiles ? 'Uploading...' : 'Upload Files'}
+                  </span>
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".jpg,.jpeg,.png,.gif,.webp,.pdf"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <span className="text-xs text-gray-400">
+                  Max 5MB each · JPG, PNG, GIF, WEBP, PDF
+                </span>
+              </div>
+
+              {/* Uploaded Files List */}
+              {attachments.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {attachments.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
+                    >
+                      {isImage(file.type) ? (
+                        <img
+                          src={file.url}
+                          alt={file.name}
+                          className="w-12 h-12 rounded object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded bg-blue-50 flex items-center justify-center">
+                          <File className="w-6 h-6 text-blue-500" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-700 truncate">{file.name}</p>
+                        <p className="text-xs text-gray-400">{formatFileSize(file.size)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(index)}
+                        className="p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-gray-400 hover:text-red-500"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Submit Button */}
             <div className="flex gap-3 pt-4 border-t border-gray-100">
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || uploadingFiles}
                 className="flex-1 px-6 py-2.5 bg-[#0D1B2A] hover:bg-[#1a2e44] text-white rounded-lg font-medium transition flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {submitting ? (
@@ -261,6 +445,7 @@ export default function RaiseQueryPage() {
               <li>• Include any error messages you're seeing</li>
               <li>• Choose the correct category for faster routing</li>
               <li>• Set appropriate priority based on urgency</li>
+              <li>• Attach screenshots for technical issues</li>
             </ul>
           </div>
         </div>

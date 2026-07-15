@@ -1,11 +1,11 @@
-// app/admin/queries/[id]/page.jsx
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, Send, Loader2, User, Shield, Clock, CheckCircle,
-  XCircle, AlertCircle, MessageCircle, ChevronDown, Reply
+  XCircle, AlertCircle, MessageCircle, ChevronDown, Reply,
+  Paperclip, Image, File, Download, Eye, X, Upload, Trash2
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import AdminSidebar from '@/components/admin/Sidebar';
@@ -19,7 +19,15 @@ export default function AdminQueryDetailPage() {
   const [sending, setSending] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [status, setStatus] = useState('');
+  const [viewingFile, setViewingFile] = useState(null);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [replyAttachments, setReplyAttachments] = useState([]);
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+
+  // File upload config
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp', 'application/pdf'];
 
   useEffect(() => {
     fetchQuery();
@@ -55,9 +63,86 @@ export default function AdminQueryDetailPage() {
     }
   };
 
+  // ─── File Upload ──────────────────────────────────────────
+  const handleFileUpload = async (file) => {
+    // Validate file type
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      toast.error('Only JPG, PNG, GIF, WEBP, and PDF files are allowed');
+      return;
+    }
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    // Check if already uploaded
+    if (replyAttachments.some(a => a.name === file.name && a.size === file.size)) {
+      toast.error('This file is already attached');
+      return;
+    }
+
+    try {
+      setUploadingFiles(true);
+      const toastId = toast.loading(`Uploading ${file.name}...`);
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', 'admin_queries');
+      formData.append('folder', 'admin_queries');
+
+      const response = await fetch('/api/admin/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+      if (result.success) {
+        const uploadedFile = {
+          name: result.data.originalName || file.name,
+          url: result.data.url,
+          size: file.size,
+          type: file.type,
+          publicId: result.data.publicId,
+        };
+
+        setReplyAttachments(prev => [...prev, uploadedFile]);
+        toast.success(`${file.name} uploaded successfully`, { id: toastId });
+      } else {
+        throw new Error(result.error || 'Upload failed');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error(`Failed to upload ${file.name}: ${error.message}`);
+    } finally {
+      setUploadingFiles(false);
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const files = e.target.files;
+    if (files.length === 0) return;
+
+    for (let i = 0; i < files.length; i++) {
+      handleFileUpload(files[i]);
+    }
+
+    e.target.value = '';
+  };
+
+  const removeReplyAttachment = (index) => {
+    setReplyAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSendReply = async () => {
-    if (!reply.trim()) {
-      toast.error('Please enter a reply message');
+    if (!reply.trim() && replyAttachments.length === 0) {
+      toast.error('Please enter a message or attach a file');
       return;
     }
 
@@ -67,8 +152,9 @@ export default function AdminQueryDetailPage() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: reply.trim(),
+          message: reply.trim() || 'Attachment(s) attached',
           status: status,
+          attachments: replyAttachments,
         }),
       });
 
@@ -81,6 +167,7 @@ export default function AdminQueryDetailPage() {
       if (result.success) {
         setQuery(result.data);
         setReply('');
+        setReplyAttachments([]);
         toast.success('Reply sent successfully');
         scrollToBottom();
       }
@@ -150,6 +237,97 @@ export default function AdminQueryDetailPage() {
     );
   };
 
+  const formatFileSize = (bytes) => {
+    if (!bytes) return 'Unknown';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+
+  const isImage = (type) => {
+    return type && type.startsWith('image/');
+  };
+
+  const getFileIcon = (type) => {
+    if (isImage(type)) return <Image className="w-4 h-4" />;
+    return <File className="w-4 h-4" />;
+  };
+
+  const openFileViewer = (file) => {
+    setViewingFile(file);
+  };
+
+  const closeFileViewer = () => {
+    setViewingFile(null);
+  };
+
+  // ─── File Viewer Modal ───
+  const FileViewerModal = () => {
+    if (!viewingFile) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={closeFileViewer}>
+        <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {getFileIcon(viewingFile.type)}
+              <div>
+                <p className="font-medium text-gray-900">{viewingFile.name}</p>
+                <p className="text-xs text-gray-400">{formatFileSize(viewingFile.size)}</p>
+              </div>
+            </div>
+            <button
+              onClick={closeFileViewer}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+          <div className="p-4 overflow-auto max-h-[calc(90vh-80px)] flex items-center justify-center">
+            {isImage(viewingFile.type) ? (
+              <img
+                src={viewingFile.url}
+                alt={viewingFile.name}
+                className="max-w-full max-h-[70vh] object-contain rounded-lg"
+              />
+            ) : viewingFile.type === 'application/pdf' ? (
+              <iframe
+                src={`${viewingFile.url}#toolbar=1`}
+                className="w-full h-[70vh] rounded-lg"
+                title={viewingFile.name}
+              />
+            ) : (
+              <div className="text-center py-12">
+                <File className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 mb-4">Preview not available for this file type</p>
+                <a
+                  href={viewingFile.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#0D1B2A] text-white rounded-lg hover:bg-[#1a2e44] transition"
+                >
+                  <Download className="w-4 h-4" />
+                  Download File
+                </a>
+              </div>
+            )}
+          </div>
+          <div className="p-4 border-t border-gray-100 flex justify-end">
+            <a
+              href={viewingFile.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#0D1B2A] text-white rounded-lg hover:bg-[#1a2e44] transition"
+            >
+              <Download className="w-4 h-4" />
+              Download
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F5F5F2] flex">
@@ -191,6 +369,10 @@ export default function AdminQueryDetailPage() {
   return (
     <div className="min-h-screen bg-[#F5F5F2] flex">
       <AdminSidebar active="queries" setActive={() => {}} />
+      
+      {/* File Viewer Modal */}
+      <FileViewerModal />
+
       <main className="pl-[260px] flex-1">
         <div className="p-6 md:p-8 max-w-[900px] mx-auto">
           <Toaster position="top-right" />
@@ -225,6 +407,58 @@ export default function AdminQueryDetailPage() {
               </div>
             </div>
           </div>
+
+          {/* Attachments Section */}
+          {query.attachments && query.attachments.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <Paperclip className="w-4 h-4" />
+                Attachments ({query.attachments.length})
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {query.attachments.map((file, index) => (
+                  <div
+                    key={index}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:shadow-md transition ${
+                      isImage(file.type) 
+                        ? 'bg-emerald-50 border-emerald-200' 
+                        : file.type === 'application/pdf' 
+                          ? 'bg-red-50 border-red-200'
+                          : 'bg-blue-50 border-blue-200'
+                    }`}
+                    onClick={() => openFileViewer(file)}
+                  >
+                    <div className="shrink-0">
+                      {isImage(file.type) ? (
+                        <img
+                          src={file.url}
+                          alt={file.name}
+                          className="w-12 h-12 rounded object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded flex items-center justify-center bg-white/50">
+                          {getFileIcon(file.type)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{file.name}</p>
+                      <p className="text-xs opacity-70">{formatFileSize(file.size)}</p>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openFileViewer(file);
+                      }}
+                      className="p-1.5 hover:bg-white/20 rounded-lg transition"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Status Update */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
@@ -286,6 +520,67 @@ export default function AdminQueryDetailPage() {
                       <p className={`text-sm ${msg.sender === 'admin' ? 'text-white/90' : 'text-gray-700'}`}>
                         {msg.message}
                       </p>
+                      
+                      {/* Attachments in conversation */}
+                      {msg.attachments?.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {msg.attachments.map((att, i) => {
+                            const isImageFile = isImage(att.type);
+                            return (
+                              <div
+                                key={i}
+                                className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition ${
+                                  msg.sender === 'admin'
+                                    ? 'bg-white/10 hover:bg-white/20'
+                                    : 'bg-gray-100 hover:bg-gray-200'
+                                }`}
+                                onClick={() => openFileViewer(att)}
+                              >
+                                {isImageFile ? (
+                                  <div className="w-12 h-12 rounded overflow-hidden shrink-0">
+                                    <img
+                                      src={att.url}
+                                      alt={att.name}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className={`w-12 h-12 rounded flex items-center justify-center shrink-0 ${
+                                    msg.sender === 'admin' ? 'bg-white/20' : 'bg-gray-200'
+                                  }`}>
+                                    {getFileIcon(att.type)}
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-xs font-medium truncate ${
+                                    msg.sender === 'admin' ? 'text-white/90' : 'text-gray-700'
+                                  }`}>
+                                    {att.name}
+                                  </p>
+                                  <p className={`text-[10px] ${
+                                    msg.sender === 'admin' ? 'text-white/50' : 'text-gray-400'
+                                  }`}>
+                                    {formatFileSize(att.size)}
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openFileViewer(att);
+                                  }}
+                                  className={`p-1.5 rounded transition ${
+                                    msg.sender === 'admin'
+                                      ? 'hover:bg-white/20 text-white/70'
+                                      : 'hover:bg-gray-300 text-gray-500'
+                                  }`}
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))
@@ -295,8 +590,39 @@ export default function AdminQueryDetailPage() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Reply Input */}
+            {/* Reply Input with File Upload */}
             <div id="reply" className="p-6 border-t border-gray-100">
+              {/* Reply Attachments Preview */}
+              {replyAttachments.length > 0 && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  {replyAttachments.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center gap-2 bg-gray-100 rounded-lg px-3 py-1.5 text-sm"
+                    >
+                      {isImage(file.type) ? (
+                        <img
+                          src={file.url}
+                          alt={file.name}
+                          className="w-8 h-8 rounded object-cover"
+                        />
+                      ) : (
+                        getFileIcon(file.type)
+                      )}
+                      <span className="text-xs text-gray-600 truncate max-w-[100px]">
+                        {file.name}
+                      </span>
+                      <button
+                        onClick={() => removeReplyAttachment(index)}
+                        className="text-gray-400 hover:text-red-500 transition"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="flex gap-3">
                 <textarea
                   value={reply}
@@ -311,24 +637,57 @@ export default function AdminQueryDetailPage() {
                     }
                   }}
                 />
-                <button
-                  onClick={handleSendReply}
-                  disabled={sending || !reply.trim()}
-                  className="px-6 py-2.5 bg-[#0D1B2A] hover:bg-[#1a2e44] text-white rounded-lg font-medium transition flex items-center gap-2 disabled:opacity-50 self-end"
-                >
-                  {sending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                  Send Reply
-                </button>
+                <div className="flex flex-col gap-2">
+                  {/* File Upload Button */}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingFiles}
+                    className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition text-gray-600 disabled:opacity-50"
+                    title="Attach files"
+                  >
+                    {uploadingFiles ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Paperclip className="w-5 h-5" />
+                    )}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".jpg,.jpeg,.png,.gif,.webp,.pdf"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  
+                  {/* Send Button */}
+                  <button
+                    onClick={handleSendReply}
+                    disabled={sending || (!reply.trim() && replyAttachments.length === 0)}
+                    className="p-2.5 bg-[#0D1B2A] hover:bg-[#1a2e44] text-white rounded-lg transition disabled:opacity-50"
+                  >
+                    {sending ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="flex items-center justify-between mt-2">
-                <p className="text-xs text-gray-400">Press Enter to send, Shift+Enter for new line</p>
-                <span className="text-xs text-gray-400">
-                  {query.status === 'open' && 'This will mark as In Progress'}
-                </span>
+                <p className="text-xs text-gray-400">
+                  Press Enter to send, Shift+Enter for new line
+                  {replyAttachments.length > 0 && ` · ${replyAttachments.length} file(s) attached`}
+                </p>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400">
+                    Max 5MB · JPG, PNG, GIF, WEBP, PDF
+                  </span>
+                  <span className="text-xs text-gray-400">
+                    {query.status === 'open' && 'This will mark as In Progress'}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

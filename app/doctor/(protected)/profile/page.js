@@ -42,11 +42,14 @@ export default function DoctorProfile() {
   const [awards, setAwards] = useState([]);
   const [slots, setSlots] = useState([]);
 
+  // Slot form state
+  const [slotTime, setSlotTime] = useState("09:00");
+  const [slotAmPm, setSlotAmPm] = useState("AM");
+
   // Input states for adding items
   const [newLang, setNewLang] = useState("");
   const [newEdu, setNewEdu] = useState("");
   const [newAward, setNewAward] = useState("");
-  const [newSlot, setNewSlot] = useState("");
 
   // All available conditions
   const allConditions = useMemo(() => [
@@ -257,13 +260,25 @@ export default function DoctorProfile() {
     setAwards(awards.filter((_, idx) => idx !== indexToRemove));
   }, [awards]);
 
-  // ─── Slot functions - Saves EXACTLY what you enter ───
+  // ─── Updated Slot functions ───
   const addSlot = useCallback(() => {
-    if (newSlot.trim() && !slots.includes(newSlot.trim())) {
-      setSlots([...slots, newSlot.trim()]);
-      setNewSlot("");
+    // Validate time format (should be HH:MM)
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(slotTime)) {
+      alert('Please enter a valid time in HH:MM format (e.g., 09:00)');
+      return;
     }
-  }, [newSlot, slots]);
+
+    // Format the slot string properly
+    const formattedSlot = `${slotTime} ${slotAmPm}`;
+    
+    if (!slots.includes(formattedSlot)) {
+      setSlots([...slots, formattedSlot]);
+      // Reset to default values
+      setSlotTime("09:00");
+      setSlotAmPm("AM");
+    }
+  }, [slotTime, slotAmPm, slots]);
 
   const removeSlot = useCallback((slotToRemove) => {
     setSlots(slots.filter(s => s !== slotToRemove));
@@ -744,15 +759,16 @@ export default function DoctorProfile() {
             </div>
           </div>
 
-          {/* ─── Appointment Slots - Saves EXACTLY what you type ─── */}
+          {/* ─── Updated Appointment Slots Section ─── */}
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 mb-8">
             <div className="flex items-center gap-2 text-gray-400 mb-1">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+              <Clock size={18} />
               <h2 className="text-xl font-bold text-gray-900">Appointment Slots</h2>
             </div>
             <p className="text-xs text-gray-400 mb-6 font-medium">Time slots shown to patients when booking</p>
 
-            <div className="flex flex-wrap gap-2.5 mb-4">
+            {/* Display existing slots */}
+            <div className="flex flex-wrap gap-2.5 mb-6">
               {slots.map((slot, index) => (
                 <div key={index} className="bg-gray-900 text-white font-bold text-sm px-4 py-2 rounded-xl flex items-center gap-2">
                   {slot}
@@ -766,16 +782,28 @@ export default function DoctorProfile() {
               )}
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1">
-                <input
-                  type="text"
-                  value={newSlot}
-                  onChange={(e) => setNewSlot(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && addSlot()}
-                  placeholder="e.g. 9:00 AM, 2:30 PM, 4:00 PM"
-                  className="w-full bg-gray-50/50 border-none rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-gray-900 text-gray-900 text-sm"
-                />
+            {/* Add slot form */}
+            <div className="flex flex-col sm:flex-row gap-3 items-end">
+              <div className="flex-1 min-w-0">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Time</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={slotTime}
+                    onChange={(e) => setSlotTime(e.target.value)}
+                    placeholder="09:00"
+                    className="flex-1 bg-gray-50/50 border-none rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-gray-900 text-gray-900 text-sm"
+                  />
+                  <select
+                    value={slotAmPm}
+                    onChange={(e) => setSlotAmPm(e.target.value)}
+                    className="bg-gray-50/50 border-none rounded-xl py-3 px-4 outline-none focus:ring-2 focus:ring-gray-900 text-gray-900 text-sm font-medium appearance-none cursor-pointer"
+                  >
+                    <option value="AM">AM</option>
+                    <option value="PM">PM</option>
+                  </select>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1 font-medium">Format: HH:MM (e.g., 09:00, 14:30)</p>
               </div>
               <button
                 onClick={addSlot}

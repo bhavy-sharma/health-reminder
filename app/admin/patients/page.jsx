@@ -119,19 +119,6 @@ function PlanBadge({ plan }) {
   );
 }
 
-function StatusBadge({ status }) {
-  const styles = {
-    active:    'bg-emerald-50 text-emerald-600 border-emerald-100',
-    suspended: 'bg-red-50 text-red-500 border-red-100',
-    inactive:  'bg-gray-100 text-gray-500 border-gray-200',
-  };
-  return (
-    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${styles[status] ?? styles.inactive}`}>
-      {status}
-    </span>
-  );
-}
-
 export default function AdminPatientsPage() {
   const router = useRouter();
   const [active, setActive] = useState('patients');
@@ -143,6 +130,7 @@ export default function AdminPatientsPage() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
   const [patients, setPatients] = useState([]);
   const [total, setTotal] = useState(0);
@@ -315,6 +303,193 @@ export default function AdminPatientsPage() {
     router.push(`/admin/patients/${patientId}`);
   };
 
+  // ── CSV Export Function ──────────────────────────────────
+  const exportToCSV = useCallback(async () => {
+    try {
+      setExporting(true);
+      
+      // Fetch all patients with current filters
+      const params = new URLSearchParams({
+        search,
+        plan: planFilter,
+        status: statusFilter,
+      });
+
+      const response = await fetch(`/api/admin/patients/export?${params}`);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to fetch patients for export');
+      }
+
+      if (result.success) {
+        const patientsData = result.data.patients;
+        
+        // Define CSV headers
+        const headers = [
+          'Name',
+          'Email',
+          'Phone',
+          'City',
+          'Plan',
+          'Status',
+          'Members',
+          'Joined Date'
+        ];
+
+        // Map patient data to CSV rows
+        const rows = patientsData.map(patient => {
+          // Ensure joinDate is a string
+          let joinDate = patient.joinDate || 'N/A';
+          // If it's still a Date object, convert it
+          if (joinDate instanceof Date) {
+            joinDate = joinDate.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric'
+            });
+          }
+          
+          return [
+            `"${(patient.name || '').replace(/"/g, '""')}"`,
+            `"${(patient.email || '').replace(/"/g, '""')}"`,
+            `"${(patient.phone || '').replace(/"/g, '""')}"`,
+            `"${(patient.city || '').replace(/"/g, '""')}"`,
+            `"${(patient.plan || 'Free').replace(/"/g, '""')}"`,
+            `"${(patient.status || 'inactive').replace(/"/g, '""')}"`,
+            patient.members || 0,
+            `"${joinDate}"`
+          ];
+        });
+
+        // Combine headers and rows
+        const csvContent = [
+          headers.join(','),
+          ...rows.map(row => row.join(','))
+        ].join('\n');
+
+        // Add BOM for UTF-8 encoding
+        const bom = '\uFEFF';
+        const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+        
+        // Create download link
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        const dateStr = new Date().toISOString().split('T')[0];
+        link.setAttribute('href', url);
+        link.setAttribute('download', `patients_export_${dateStr}.csv`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        showToast(`Successfully exported ${patientsData.length} patients!`, 'success');
+      } else {
+        throw new Error(result.message || 'Failed to export patients');
+      }
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      showToast(`Failed to export CSV: ${error.message}`, 'error');
+    } finally {
+      setExporting(false);
+    }
+  }, [search, planFilter, statusFilter]);
+
+  // ── Export Selected Patients ──────────────────────────────
+  const exportSelectedToCSV = useCallback(async () => {
+    if (selected.length === 0) {
+      showToast('Please select at least one patient to export', 'error');
+      return;
+    }
+
+    try {
+      setExporting(true);
+      
+      // Fetch only selected patients
+      const params = new URLSearchParams({
+        ids: selected.join(','),
+      });
+
+      const response = await fetch(`/api/admin/patients/export?${params}`);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to export selected patients');
+      }
+
+      if (result.success) {
+        const patientsData = result.data.patients;
+        
+        const headers = [
+          'Name',
+          'Email',
+          'Phone',
+          'City',
+          'Plan',
+          'Status',
+          'Members',
+          'Joined Date'
+        ];
+
+        const rows = patientsData.map(patient => {
+          let joinDate = patient.joinDate || 'N/A';
+          if (joinDate instanceof Date) {
+            joinDate = joinDate.toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric'
+            });
+          }
+          
+          return [
+            `"${(patient.name || '').replace(/"/g, '""')}"`,
+            `"${(patient.email || '').replace(/"/g, '""')}"`,
+            `"${(patient.phone || '').replace(/"/g, '""')}"`,
+            `"${(patient.city || '').replace(/"/g, '""')}"`,
+            `"${(patient.plan || 'Free').replace(/"/g, '""')}"`,
+            `"${(patient.status || 'inactive').replace(/"/g, '""')}"`,
+            patient.members || 0,
+            `"${joinDate}"`
+          ];
+        });
+
+        const csvContent = [
+          headers.join(','),
+          ...rows.map(row => row.join(','))
+        ].join('\n');
+
+        const bom = '\uFEFF';
+        const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+        
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        
+        const dateStr = new Date().toISOString().split('T')[0];
+        link.setAttribute('href', url);
+        link.setAttribute('download', `selected_patients_export_${dateStr}.csv`);
+        link.style.visibility = 'hidden';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        showToast(`Successfully exported ${patientsData.length} selected patients!`, 'success');
+        setSelected([]);
+      } else {
+        throw new Error(result.message || 'Failed to export selected patients');
+      }
+    } catch (error) {
+      console.error('Error exporting selected patients:', error);
+      showToast(`Failed to export: ${error.message}`, 'error');
+    } finally {
+      setExporting(false);
+    }
+  }, [selected]);
+
   const allChecked = patients.length > 0 && patients.every((p) => selected.includes(p.id));
   const toggleAll = () => setSelected(allChecked ? [] : patients.map((p) => p.id));
   const toggleOne = (id) => setSelected((prev) => prev.includes(id) ? prev.filter((e) => e !== id) : [...prev, id]);
@@ -471,10 +646,23 @@ export default function AdminPatientsPage() {
                   >
                     <UserCheck className="w-4 h-4" /> Unsuspend ({selected.length})
                   </button>
+                  <button
+                    onClick={exportSelectedToCSV}
+                    disabled={exporting}
+                    className="flex items-center justify-center gap-2 bg-purple-500 text-white rounded-xl px-4 py-2.5 text-sm font-medium hover:bg-purple-600 transition-colors disabled:opacity-50"
+                  >
+                    <Download className="w-4 h-4" /> 
+                    {exporting ? 'Exporting...' : `Export Selected (${selected.length})`}
+                  </button>
                 </>
               )}
-              <button className="flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors">
-                <Download className="w-4 h-4" /> Export CSV
+              <button 
+                onClick={exportToCSV}
+                disabled={exporting}
+                className="flex items-center justify-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                <Download className="w-4 h-4" /> 
+                {exporting ? 'Exporting...' : 'Export CSV'}
               </button>
             </div>
           </div>

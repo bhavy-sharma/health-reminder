@@ -24,6 +24,7 @@ export async function POST(request) {
       );
     }
 
+    
     if (auth.role !== 'doctor') {
       if (auth.hasDoctorProfile && auth.doctorStatus === 'pending') {
         return NextResponse.json(

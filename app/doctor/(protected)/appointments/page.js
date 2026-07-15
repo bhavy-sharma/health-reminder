@@ -8,6 +8,30 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+// ─── Avatar Color Utility ──────────────────────────────────
+function getAvatarColor(name) {
+  if (!name) return 'bg-gray-500';
+  const colors = [
+    'bg-emerald-500', 'bg-amber-500', 'bg-red-500', 
+    'bg-blue-500', 'bg-purple-500', 'bg-pink-500',
+    'bg-indigo-500', 'bg-teal-500', 'bg-rose-500',
+    'bg-orange-500', 'bg-cyan-500', 'bg-violet-500',
+    'bg-lime-500', 'bg-fuchsia-500', 'bg-sky-500'
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+
+function getInitials(name) {
+  if (!name) return '?';
+  const parts = name.trim().split(' ');
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+}
+
 export default function DoctorAppointments() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -42,7 +66,13 @@ export default function DoctorAppointments() {
       }
 
       if (result.success) {
-        setAppointments(result.data.appointments || []);
+        // Add avatar colors and initials to each appointment
+        const appointmentsWithColors = (result.data.appointments || []).map(apt => ({
+          ...apt,
+          color: getAvatarColor(apt.patient),
+          initials: getInitials(apt.patient)
+        }));
+        setAppointments(appointmentsWithColors);
         setCounts(result.data.counts || { all: 0, confirmed: 0, pending: 0, cancelled: 0, completed: 0 });
       } else {
         throw new Error(result.error || 'Failed to load appointments');
@@ -257,7 +287,8 @@ export default function DoctorAppointments() {
                   ${selectedApt?.id === apt.id ? 'border-2 border-gray-900' : 'border border-gray-200 hover:border-gray-400'}`}
               >
                 <div className="flex items-start gap-4">
-                  <div className={`w-14 h-14 rounded-full ${apt.color || 'bg-gray-400'} text-white flex items-center justify-center font-bold text-lg shrink-0`}>
+                  {/* Avatar Circle - Now with vibrant colors */}
+                  <div className={`w-14 h-14 rounded-full ${apt.color || 'bg-gray-400'} text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-sm`}>
                     {apt.initials || '?'}
                   </div>
                   <div>
@@ -339,9 +370,9 @@ export default function DoctorAppointments() {
             </div>
 
             <div className="p-6 flex flex-col gap-6">
-              {/* Patient Info */}
+              {/* Patient Info - Avatar with color */}
               <div className="flex items-center gap-4">
-                <div className={`w-16 h-16 rounded-2xl ${selectedApt.color || 'bg-gray-400'} text-white flex items-center justify-center font-bold text-xl`}>
+                <div className={`w-16 h-16 rounded-2xl ${selectedApt.color || 'bg-gray-400'} text-white flex items-center justify-center font-bold text-xl shadow-sm`}>
                   {selectedApt.initials || '?'}
                 </div>
                 <div>

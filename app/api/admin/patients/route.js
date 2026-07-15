@@ -73,7 +73,7 @@ export async function GET(request) {
 
     // Get users with pagination
     const users = await User.find(query)
-      .select('fullName email mobile city role isVerified isSuspended suspendedReason suspendedAt suspendedBy families createdAt updatedAt profile')
+      .select('fullName email mobile city role isVerified isSuspended suspendedReason suspendedAt suspendedBy families createdAt updatedAt profile address plan')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -86,7 +86,6 @@ export async function GET(request) {
       users.map(async (user) => {
         let family = null;
         let familyMembers = [];
-        let plan = 'Free';
         let familyStatus = 'active';
         
         // Get user's primary family
@@ -97,7 +96,6 @@ export async function GET(request) {
             family = await Family.findById(activeFamily.familyId).lean();
             
             if (family) {
-              plan = family.plan?.type || 'Free';
               familyStatus = family.isActive ? 'active' : 'inactive';
               
               familyMembers = await FamilyMember.find({ 
@@ -125,21 +123,52 @@ export async function GET(request) {
           statusColor = 'bg-gray-100 text-gray-500 border-gray-200';
         }
 
-        const primaryMember = familyMembers.find(m => m.isPrimary) || familyMembers[0];
+        // Get city from user's address or fallback to primary member's city
+        let city = 'Unknown';
+        if (user.address?.city) {
+          city = user.address.city;
+        } else {
+          const primaryMember = familyMembers.find(m => m.isPrimary) || familyMembers[0];
+          if (primaryMember?.city) {
+            city = primaryMember.city;
+          }
+        }
+        
+        // Get plan from user's direct plan field
+        let planType = user.plan || 'free';
+        // Format plan name to match frontend expectations (capitalized)
+        let planDisplay = planType.charAt(0).toUpperCase() + planType.slice(1);
+        
+        // If user has no plan or it's 'free', check family plan as fallback
+        if (planType === 'free' && family) {
+          const familyPlan = family.plan?.type || 'Free';
+          if (familyPlan !== 'Free') {
+            planDisplay = familyPlan;
+          }
+        }
+        
+        // Format join date
+        const joinDate = user.createdAt ? new Date(user.createdAt) : null;
+        const formattedJoinDate = joinDate ? joinDate.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        }) : 'N/A';
         
         return {
           id: user._id,
           name: user.fullName || 'Unknown',
           email: user.email || '',
           mobile: user.mobile || '',
-          city: user.city || primaryMember?.city || 'Unknown',
-          plan: plan,
+          city: city,
+          plan: planDisplay,
           members: familyMembers.length || 0,
           status: userStatus,
           statusLabel: statusLabel,
           statusColor: statusColor,
           familyId: family?._id || null,
           createdAt: user.createdAt,
+          joinDate: formattedJoinDate,
           updatedAt: user.updatedAt,
           initials: getInitials(user.fullName),
           color: getAvatarColor(user.fullName),
@@ -156,6 +185,8 @@ export async function GET(request) {
             mobile: user.mobile,
             role: user.role,
             profile: user.profile,
+            address: user.address,
+            plan: user.plan,
           }
         };
       })
@@ -164,7 +195,12 @@ export async function GET(request) {
     // Apply plan filter
     let filteredPatients = patientsWithDetails;
     if (plan !== "All Plans") {
-      filteredPatients = filteredPatients.filter(p => p.plan === plan);
+      filteredPatients = filteredPatients.filter(p => {
+        // Get the original plan value from the user object
+        const userPlan = p.user?.plan || 'free';
+        const planLower = plan.toLowerCase();
+        return userPlan === planLower || p.plan === plan;
+      });
     }
 
     const totalPages = Math.ceil(total / limit);
@@ -173,7 +209,7 @@ export async function GET(request) {
       success: true,
       data: {
         patients: filteredPatients,
-        total: filteredPatients.length,
+        total: total,
         page,
         limit,
         totalPages,
@@ -328,74 +364,6 @@ export async function POST(request) {
       { 
         success: false, 
         message: error.message || "Failed to update patients" 
-      },
-      { status: 500 }
-    );
-  }
-}
-
-// ── GET: Single patient details ──────────────────────────────
-
-export async function GET_PATIENT(request, { params }) {
-  try {
-    const authResult = await validateUserRole(request, ['admin', 'staff']);
-    
-    if (!authResult.valid) {
-      return NextResponse.json(
-        { error: authResult.error || 'Authentication failed' },
-        { status: authResult.status || 401 }
-      );
-    }
-
-    await connectToDatabase();
-
-    const { id } = params;
-    
-    const user = await User.findById(id)
-      .select('-password -otp -resetToken')
-      .lean();
-      
-    if (!user) {
-      return NextResponse.json(
-        { error: "Patient not found" },
-        { status: 404 }
-      );
-    }
-
-    // Get family info
-    let family = null;
-    let familyMembers = [];
-    let plan = 'Free';
-    
-    if (user.families && user.families.length > 0) {
-      const activeFamily = user.families.find(f => f.isActive) || user.families[0];
-      if (activeFamily) {
-        family = await Family.findById(activeFamily.familyId).lean();
-        if (family) {
-          plan = family.plan?.type || 'Free';
-          familyMembers = await FamilyMember.find({ 
-            familyId: family._id,
-            isActive: true 
-          }).lean();
-        }
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...user,
-        family,
-        familyMembers,
-        plan,
-      },
-    });
-  } catch (error) {
-    console.error("Error fetching patient:", error);
-    return NextResponse.json(
-      { 
-        success: false, 
-        message: error.message || "Failed to fetch patient" 
       },
       { status: 500 }
     );

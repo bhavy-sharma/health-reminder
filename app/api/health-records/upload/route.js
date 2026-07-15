@@ -1,4 +1,3 @@
-// app/api/health-records/upload/route.js
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db";
 import HealthRecord from "@/models/HealthRecord";
@@ -144,27 +143,37 @@ export async function POST(request) {
       );
     }
 
-    // Upload to Cloudinary
+    // ─── FIX: Upload EVERYTHING as image (including PDFs) ───
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Determine resource type - PDFs need "raw", images use "image"
+    // Always use 'image' resource type for both images and PDFs
+    const resourceType = "image";
     const isPDF = file.type === "application/pdf";
-    const resourceType = isPDF ? "raw" : "image";
+
+    console.log(`📤 Uploading file as ${resourceType}: ${file.name}`);
 
     const uploadResult = await new Promise((resolve, reject) => {
       cloudinary.uploader.upload_stream(
         {
           folder: `health-records/${familyId}`,
-          resource_type: resourceType,
+          resource_type: resourceType, // Always 'image'
           type: "upload",
           access_mode: "public",
+          // For PDFs, explicitly set format so it serves as PDF
+          ...(isPDF && { format: 'pdf' }),
         },
         (error, result) => {
           if (error) reject(error);
           else resolve(result);
         }
       ).end(buffer);
+    });
+
+    console.log('✅ Upload successful:', {
+      publicId: uploadResult.public_id,
+      resourceType: uploadResult.resource_type,
+      url: uploadResult.secure_url,
     });
 
     // Create health record
@@ -188,7 +197,7 @@ export async function POST(request) {
     user.storageUsed = (user.storageUsed || 0) + fileSizeInGB;
     await user.save();
 
-    // ─── UPDATE FAMILY STORAGE (for display purposes) ───
+    // ─── UPDATE FAMILY STORAGE ───
     family.storageUsed = (family.storageUsed || 0) + fileSizeInGB;
     await family.save();
 
@@ -206,6 +215,8 @@ export async function POST(request) {
           id: record._id,
           documentName: record.documentName,
           fileUrl: record.fileUrl,
+          filePublicId: record.filePublicId,
+          resourceType: resourceType,
         },
         storage: {
           used: user.storageUsed,
