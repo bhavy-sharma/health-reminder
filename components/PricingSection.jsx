@@ -58,6 +58,7 @@ export default function PricingSection() {
         "32 WhatsApp reminders/Day",
         "Doctor PDF sharing",
         "Dedicated support",
+        "AI Integration (Comming Soon)",
       ],
       cta: "Start Premium",
       dark: false,
