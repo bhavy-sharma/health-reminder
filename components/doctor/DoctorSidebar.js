@@ -218,14 +218,10 @@ export default function DoctorSidebar() {
         </div>
 
         <div className="space-y-1">
-<<<<<<< HEAD
-
-=======
           {/* <Link href="/dashboard" className="flex items-center gap-3 px-4 py-2 text-xs text-[var(--color-doctor-sidebar-text)] hover:text-white transition-colors rounded-lg hover:bg-white/5">
             <ArrowLeft size={14} />
             View patient side
           </Link> */}
->>>>>>> origin/sami/patient-queries
           <button 
             onClick={handleLogout}
             disabled={loggingOut}
