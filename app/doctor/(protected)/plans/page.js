@@ -25,7 +25,7 @@ export default function PlansAndBilling() {
     subscription: null,
     paymentHistory: [],
     pricing: {
-      monthly: { pro: 999, premium: 2499 },
+      monthly: { pro: 349, premium: 699 },
       annual: { pro: 799, premium: 1999 },
     }
   });
@@ -74,7 +74,7 @@ export default function PlansAndBilling() {
           subscription: data.subscription || null,
           paymentHistory: data.paymentHistory || [],
           pricing: data.pricing || {
-            monthly: { pro: 999, premium: 2499 },
+            monthly: { pro: 349, premium: 699 },
             annual: { pro: 799, premium: 1999 },
           }
         });
@@ -310,7 +310,7 @@ export default function PlansAndBilling() {
             <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Basic profile listing</div>
             <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Up to 10 bookings / month</div>
             <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Patient reviews & ratings</div>
-            <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Standard search placement</div>
+            {/* <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Standard search placement</div> */}
             <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-text-muted)] opacity-60"><XIcon size={18} /> Priority search placement</div>
             <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-text-muted)] opacity-60"><XIcon size={18} /> Analytics dashboard</div>
             <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-text-muted)] opacity-60"><XIcon size={18} /> Verified badge boost</div>
@@ -341,7 +341,7 @@ export default function PlansAndBilling() {
           <div className="p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 mb-8">
               <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Everything in Free</div>
-              <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Up to 100 bookings / month</div>
+              <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Up to 50 bookings / month</div>
               <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Priority search placement</div>
               <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Verified badge boost</div>
               <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Basic analytics dashboard</div>
@@ -385,15 +385,15 @@ export default function PlansAndBilling() {
           <div className="p-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8 mb-8">
               <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Everything in Pro</div>
-              <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Unlimited bookings</div>
+              <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> 150 bookings</div>
               <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Top placement — disease searches</div>
               <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Advanced analytics</div>
-              <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Custom clinic page</div>
+              <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Video consultation</div>
               <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Dedicated account manager</div>
               <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Priority customer support</div>
               <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Multi-location support</div>
-              <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Patient follow-up automation</div>
-              <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Featured Doctor badge</div>
+              {/* <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Patient follow-up automation</div> */}
+              <div className="flex items-center gap-3 text-sm font-medium text-[var(--color-navy)]"><Check size={18} className="text-[#4a9e7f]" /> Verified Doctor badge</div>
             </div>
 
             <button 

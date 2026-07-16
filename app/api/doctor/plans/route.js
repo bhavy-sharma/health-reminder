@@ -83,7 +83,7 @@ export async function GET(request) {
         maxPatients: 500,
         features: [
           'Everything in Free',
-          'Up to 100 bookings / month',
+          'Up to 50 bookings / month',
           'Priority search placement',
           'Verified badge boost',
           'Basic analytics dashboard',
@@ -96,7 +96,7 @@ export async function GET(request) {
         maxPatients: Infinity,
         features: [
           'Everything in Pro',
-          'Unlimited bookings',
+          '150 bookings',
           'Top placement — disease searches',
           'Advanced analytics',
           'Custom clinic page',
