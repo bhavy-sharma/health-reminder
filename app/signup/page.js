@@ -64,7 +64,7 @@ export default function SignupPage() {
 
             <div>
               <span className="text-sm font-semibold tracking-wider text-blue-300 uppercase">
-                Family Health Command Center
+                MedKept Command Center
               </span>
               <h1 className="text-4xl font-serif font-bold mt-4 leading-tight">
                 One secure home for your family&apos;s health records.
@@ -101,7 +101,7 @@ export default function SignupPage() {
             </div>
 
             <div className="text-xs text-gray-400">
-              © 2026 Family Health●. All rights reserved.
+              © 2026 MedKept●. All rights reserved.
             </div>
           </div>
 
@@ -181,7 +181,7 @@ export default function SignupPage() {
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 pointer-events-none">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 00-2 2z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                     </span>
                     <input

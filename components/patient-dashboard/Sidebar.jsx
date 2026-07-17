@@ -194,7 +194,7 @@ const Sidebar = () => {
             {/* Header */}
             <div className="p-6 border-b border-white/10">
                 <div>
-                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded">Family Health</span>
+                    <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded">MedKept</span>
                     <div className="flex items-center gap-2 mt-3">
                         <h1 className="text-base font-bold text-white tracking-tight">
                             {loading ? 'Loading...' : familyData.familyName}

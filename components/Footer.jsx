@@ -11,7 +11,7 @@ export default function Footer() {
               href="/"
               className="text-2xl font-serif font-bold tracking-tight inline-block mb-3"
             >
-              Family Health<span className="text-white">•</span>
+              MedKept<span className="text-white">•</span>
             </Link>
             <p className="text-gray-400 text-sm leading-relaxed">
               India&apos;s first family health management platform

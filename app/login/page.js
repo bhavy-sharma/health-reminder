@@ -69,10 +69,10 @@ export default function LoginPage() {
 
             <div>
               <span className="text-sm font-semibold tracking-wider text-blue-300 uppercase">
-                Family Health Command Center
+                MedKept Command Center
               </span>
               <h1 className="text-4xl font-serif font-bold mt-4 leading-tight">
-                Welcome back to Family Health.
+                Welcome back to MedKept.
               </h1>
               <p className="text-gray-300 mt-4 max-w-md leading-relaxed">
                 Sign in to access your medical records, check health stats, and coordinate reminders for your family members.
@@ -106,7 +106,7 @@ export default function LoginPage() {
             </div>
 
             <div className="text-xs text-gray-400">
-              © 2026 Family Health●. All rights reserved.
+              © 2026 MedKept●. All rights reserved.
             </div>
           </div>
 

@@ -211,7 +211,7 @@ export default function DoctorAuthPage() {
         <div>
           <div className="flex items-center gap-2 mb-16">
             <Link href="/home" className="block">
-              <h1 className="font-fraunces text-2xl font-bold hover:text-white/90 transition-colors">Family Health<span className="text-white">●</span></h1>
+              <h1 className="font-fraunces text-2xl font-bold hover:text-white/90 transition-colors">MedKept<span className="text-white">●</span></h1>
             </Link>
             <span className="bg-white/10 text-[var(--color-surface-secondary)] text-xs px-3 py-1 rounded-full flex items-center gap-1 border border-white/20">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 2a2 2 0 0 0-2 2v5H4a2 2 0 0 0-2 2v2c0 1.1.9 2 2 2h5v5c0 1.1.9 2 2 2h2a2 2 0 0 0 2-2v-5h5a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-5V4a2 2 0 0 0-2-2h-2z" className="hidden" /><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.5.5 0 0 0-.14.01" /><path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4" /><circle cx="20" cy="10" r="2" /></svg>
@@ -225,7 +225,7 @@ export default function DoctorAuthPage() {
           </h2>
           
           <p className="text-[var(--color-text-muted)] text-lg mb-12 max-w-md">
-            Join thousands of verified doctors on India's most trusted family health platform.
+            Join thousands of verified doctors on India's most trusted MedKept platform.
           </p>
 
           <div className="space-y-6">

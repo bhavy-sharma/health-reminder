@@ -106,7 +106,7 @@ export default function DoctorSidebar() {
       {/* Logo */}
       <div className="p-6 pb-8">
         <Link href="/" className="block w-fit">
-          <h1 className="font-fraunces text-2xl font-bold hover:text-white/90 transition-colors">Family Health<span className="text-white">●</span></h1>
+          <h1 className="font-fraunces text-2xl font-bold hover:text-white/90 transition-colors">MedKept<span className="text-white">●</span></h1>
         </Link>
       </div>
 

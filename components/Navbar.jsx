@@ -79,7 +79,7 @@ export default function Navbar() {
           href="/"
           className="text-2xl font-serif font-bold text-gray-900 tracking-tight"
         >
-          Family Health<span className="text-gray-900">•</span>
+          MedKept<span className="text-gray-900">•</span>
         </Link>
 
         {/* Desktop Navigation Links */}
@@ -93,9 +93,9 @@ export default function Navbar() {
           <Link href="#pricing" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
             Pricing
           </Link>
-          <Link href="#corporates" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+          {/* <Link href="#corporates" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
             For Corporates
-          </Link>
+          </Link> */}
         </div>
 
         {/* Desktop CTA Buttons */}
@@ -175,13 +175,13 @@ export default function Navbar() {
             >
               Pricing
             </Link>
-            <Link
+            {/* <Link
               href="#corporates"
               className="text-sm text-gray-600 hover:text-gray-900 transition-colors py-2"
               onClick={() => setIsMobileMenuOpen(false)}
             >
               For Corporates
-            </Link>
+            </Link> */}
           </div>
 
           {/* Mobile CTA Buttons */}
