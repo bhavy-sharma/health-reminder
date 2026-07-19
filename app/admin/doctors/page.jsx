@@ -559,7 +559,7 @@ export default function AdminDoctorsPage() {
           isMobileOpen={isMobileOpen}
           setIsMobileOpen={setIsMobileOpen}
         />
-        <main className="flex-1 w-full md:pl-[260px]">
+        <main className="flex-1 w-full md:pl-[260px] min-w-0">
           <div className="flex items-center justify-center h-screen">
             <div className="text-center">
               <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
@@ -580,7 +580,7 @@ export default function AdminDoctorsPage() {
           isMobileOpen={isMobileOpen}
           setIsMobileOpen={setIsMobileOpen}
         />
-        <main className="flex-1 w-full md:pl-[260px]">
+        <main className="flex-1 w-full md:pl-[260px] min-w-0">
           <div className="flex items-center justify-center h-screen p-4">
             <div className="text-center max-w-md mx-auto p-8 bg-white rounded-2xl shadow-sm border border-gray-100">
               <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -629,7 +629,7 @@ export default function AdminDoctorsPage() {
         setIsMobileOpen={setIsMobileOpen}
       />
 
-      <main className="flex-1 w-full md:pl-[260px]">
+      <main className="flex-1 w-full md:pl-[260px] min-w-0">
         <div className="sticky top-0 z-30 bg-white border-b border-gray-100 px-4 sm:px-8 py-3 flex items-center gap-2">
           <button 
             onClick={() => setIsMobileOpen(true)}

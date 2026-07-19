@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Search, ChevronRight, Loader2, AlertCircle,
   Clock, CheckCircle, XCircle, MessageCircle,
-  Filter, ChevronDown, Eye, Reply, Users, User
+  Filter, ChevronDown, Eye, Reply, Users, User, Menu
 } from 'lucide-react';
 import Link from 'next/link';
 import AdminSidebar from '@/components/admin/Sidebar';
@@ -25,6 +25,7 @@ export default function AdminQueriesPage() {
   const [categoryCounts, setCategoryCounts] = useState({});
   const [creatorCounts, setCreatorCounts] = useState({});
   const [showFilters, setShowFilters] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   useEffect(() => {
     fetchQueries();
@@ -115,8 +116,8 @@ export default function AdminQueriesPage() {
   if (loading && page === 1) {
     return (
       <div className="min-h-screen bg-[#F5F5F2] flex">
-        <AdminSidebar active="queries" setActive={() => {}} />
-        <main className="pl-[260px] flex-1">
+        <AdminSidebar active="queries" setActive={() => {}} isMobileOpen={isMobileOpen} setIsMobileOpen={setIsMobileOpen} />
+        <main className="md:pl-[260px] flex-1 w-full min-w-0">
           <div className="flex items-center justify-center h-screen">
             <div className="text-center">
               <Loader2 className="w-12 h-12 text-[#0D1B2A] animate-spin mx-auto mb-4" />
@@ -130,16 +131,24 @@ export default function AdminQueriesPage() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F2] flex">
-      <AdminSidebar active="queries" setActive={() => {}} />
-      <main className="pl-[260px] flex-1">
-        <div className="p-6 md:p-8 max-w-[1400px] mx-auto">
+      <AdminSidebar active="queries" setActive={() => {}} isMobileOpen={isMobileOpen} setIsMobileOpen={setIsMobileOpen} />
+      <main className="md:pl-[260px] flex-1 w-full min-w-0">
+        <div className="p-4 sm:p-6 md:p-8 max-w-[1400px] mx-auto pt-20 md:pt-8">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Queries Management</h1>
-              <p className="text-gray-500 mt-1">
-                {counts.open || 0} open · {counts.in_progress || 0} in progress · {counts.resolved || 0} resolved
-              </p>
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setIsMobileOpen(true)}
+                className="md:hidden p-2 bg-white rounded-lg border border-gray-200 text-gray-600"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Queries Management</h1>
+                <p className="text-gray-500 mt-1 text-sm sm:text-base">
+                  {counts.open || 0} open · {counts.in_progress || 0} in progress · {counts.resolved || 0} resolved
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-500">
               <span className="flex items-center gap-1">

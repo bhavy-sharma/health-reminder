@@ -19,6 +19,8 @@ import {
     Calendar,
     UserCircle,
     HardDrive,
+    MessageCircle,
+    HelpCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -59,6 +61,11 @@ const Sidebar = () => {
         { icon: Search, label: 'Find Doctors', href: '/find-doctors' },
         { icon: Users, label: 'Family Members', href: '/family-members' },
         { icon: UserCircle, label: 'My Profile', href: '/profile' },
+    ];
+
+    const supportItems = [
+        { icon: HelpCircle, label: 'Raise Query', href: '/raise-query' },
+        { icon: MessageCircle, label: 'My Queries', href: '/queries' },
     ];
 
     useEffect(() => {
@@ -230,6 +237,40 @@ const Sidebar = () => {
                         const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
                         return (
                             <li key={index}>
+                                <Link
+                                    href={item.href}
+                                    className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-300 font-medium ${isActive
+                                            ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg shadow-blue-500/25'
+                                            : 'text-blue-100/70 hover:bg-white/5 hover:text-white hover:pl-5'
+                                        } ${item.badge ? 'relative' : ''}`}
+                                >
+                                    <item.icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-blue-400'}`} />
+                                    <span className="flex-1 text-sm">{item.label}</span>
+                                    {item.badge && (
+                                        <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full ${isActive ? 'bg-white text-blue-900' : 'text-blue-300 bg-blue-950/50 border border-blue-900'
+                                            }`}>
+                                            {item.badge}
+                                        </span>
+                                    )}
+                                </Link>
+                            </li>
+                        );
+                    })}
+                </ul>
+
+                {/* ─── Divider ─── */}
+                <div className="my-4 border-t border-white/10" />
+
+                {/* ─── Support Section Title ─── */}
+                <div className="px-2 py-2 mb-1">
+                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Support</p>
+                </div>
+
+                <ul className="space-y-1.5">
+                    {supportItems.map((item, index) => {
+                        const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+                        return (
+                            <li key={`support-${index}`}>
                                 <Link
                                     href={item.href}
                                     className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-300 font-medium ${isActive

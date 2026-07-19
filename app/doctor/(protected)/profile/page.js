@@ -344,10 +344,6 @@ export default function DoctorProfile() {
           <span>/</span>
           <span className="text-gray-900 font-bold">Edit Profile</span>
         </div>
-        <button className="relative p-2 text-gray-700 hover:bg-white/50 rounded-full transition-colors">
-          <Bell size={20} />
-          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-        </button>
       </div>
 
       {!isPreview ? (

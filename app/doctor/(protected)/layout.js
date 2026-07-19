@@ -11,12 +11,11 @@ export default function DoctorProtectedLayout({ children }) {
     <>
       <RazorpayScript />
       
+      <DoctorSidebar />
       <div className="flex min-h-screen bg-[#FAF8F5]">
-        <div className="hidden md:block w-64 shrink-0">
-          <DoctorSidebar />
-        </div>
+        <div className="hidden md:block w-64 shrink-0" />
 
-        <main className="flex-1 max-w-[896px] mx-auto w-full relative bg-[#FAF8F5] p-6 md:p-8">
+        <main className="flex-1 min-w-0 w-full relative bg-[#FAF8F5] pt-20 md:pt-0">
           {children}
         </main>
       </div>

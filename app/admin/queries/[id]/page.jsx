@@ -348,7 +348,7 @@ export default function AdminQueryDetailPage() {
     return (
       <div className="min-h-screen bg-[#F5F5F2] flex">
         <AdminSidebar active="queries" setActive={() => {}} />
-        <main className="pl-[260px] flex-1">
+        <main className="md:pl-[260px] flex-1 min-w-0 w-full">
           <div className="flex items-center justify-center h-[calc(100vh-200px)]">
             <div className="text-center">
               <Loader2 className="w-12 h-12 text-[#0D1B2A] animate-spin mx-auto mb-4" />
@@ -364,7 +364,7 @@ export default function AdminQueryDetailPage() {
     return (
       <div className="min-h-screen bg-[#F5F5F2] flex">
         <AdminSidebar active="queries" setActive={() => {}} />
-        <main className="pl-[260px] flex-1">
+        <main className="md:pl-[260px] flex-1 min-w-0 w-full">
           <div className="flex items-center justify-center h-[calc(100vh-200px)]">
             <div className="text-center">
               <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
@@ -416,7 +416,7 @@ export default function AdminQueryDetailPage() {
       {/* File Viewer Modal */}
       <FileViewerModal />
 
-      <main className="pl-[260px] flex-1">
+      <main className="md:pl-[260px] flex-1 min-w-0 w-full">
         <div className="p-6 md:p-8 max-w-[900px] mx-auto">
           <Toaster position="top-right" />
 

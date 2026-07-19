@@ -530,7 +530,7 @@ export default function DoctorDetailPage() {
     return (
       <div className="min-h-screen bg-[#F5F5F2] flex">
         <AdminSidebar active={active} setActive={setActive} isMobileOpen={isMobileOpen} setIsMobileOpen={setIsMobileOpen} />
-        <main className="flex-1 w-full md:pl-[260px]">
+        <main className="flex-1 w-full md:pl-[260px] min-w-0">
           <div className="flex items-center justify-center h-screen">
             <div className="text-center">
               <Loader className="w-12 h-12 text-emerald-500 animate-spin mx-auto mb-4" />
@@ -546,7 +546,7 @@ export default function DoctorDetailPage() {
     return (
       <div className="min-h-screen bg-[#F5F5F2] flex">
         <AdminSidebar active={active} setActive={setActive} isMobileOpen={isMobileOpen} setIsMobileOpen={setIsMobileOpen} />
-        <main className="flex-1 w-full md:pl-[260px]">
+        <main className="flex-1 w-full md:pl-[260px] min-w-0">
           <div className="flex items-center justify-center h-screen p-4">
             <div className="text-center max-w-md mx-auto p-8 bg-white rounded-2xl shadow-sm border border-gray-100">
               <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -579,7 +579,7 @@ export default function DoctorDetailPage() {
     return (
       <div className="min-h-screen bg-[#F5F5F2] flex">
         <AdminSidebar active={active} setActive={setActive} isMobileOpen={isMobileOpen} setIsMobileOpen={setIsMobileOpen} />
-        <main className="flex-1 w-full md:pl-[260px]">
+        <main className="flex-1 w-full md:pl-[260px] min-w-0">
           <div className="flex items-center justify-center h-screen">
             <div className="text-center">
               <User className="w-16 h-16 text-gray-300 mx-auto mb-4" />
@@ -601,7 +601,7 @@ export default function DoctorDetailPage() {
     <div className="min-h-screen bg-[#F5F5F2] flex">
       <AdminSidebar active={active} setActive={setActive} isMobileOpen={isMobileOpen} setIsMobileOpen={setIsMobileOpen} />
 
-      <main className="flex-1 w-full md:pl-[260px]">
+      <main className="flex-1 w-full md:pl-[260px] min-w-0">
         <div className="p-4 sm:p-8 max-w-[1200px] mx-auto">
           {toast.show && (
             <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white text-sm ${

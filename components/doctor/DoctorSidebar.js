@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { 
   LayoutGrid, Calendar, Star, User, CreditCard, LogOut, ArrowLeft, 
-  Loader2, MessageCircle, HelpCircle 
+  Loader2, MessageCircle, HelpCircle, Menu, X
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -16,11 +16,38 @@ export default function DoctorSidebar() {
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
   const [pendingQueriesCount, setPendingQueriesCount] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     fetchDoctorData();
     fetchPendingQueriesCount();
   }, []);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  useEffect(() => {
+    if (isMobile) setIsOpen(false);
+  }, [pathname, isMobile]);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+        if (isMobile && isOpen) {
+            const sidebar = document.getElementById('doctor-sidebar');
+            const hamburger = document.getElementById('doctor-hamburger-btn');
+            if (sidebar && !sidebar.contains(e.target) && hamburger && !hamburger.contains(e.target)) {
+                setIsOpen(false);
+            }
+        }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isMobile, isOpen]);
 
   const fetchDoctorData = async () => {
     try {
@@ -102,7 +129,29 @@ export default function DoctorSidebar() {
   ];
 
   return (
-    <aside className="w-64 h-screen bg-[var(--color-doctor-sidebar)] text-white fixed left-0 top-0 flex flex-col border-r border-white/5 z-50">
+    <>
+      {!(isMobile && isOpen) && (
+        <button
+          id="doctor-hamburger-btn"
+          onClick={() => setIsOpen(!isOpen)}
+          className="md:hidden fixed top-4 left-4 z-[60] p-2 bg-[#0D1B2A] border border-white/20 rounded-lg shadow-lg hover:bg-white/10 transition text-white"
+          aria-label="Toggle menu"
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+      )}
+
+      {isMobile && isOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 transition-opacity duration-300 md:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      <aside 
+        id="doctor-sidebar"
+        className={`w-64 h-screen bg-[var(--color-doctor-sidebar)] text-white fixed left-0 top-0 flex flex-col border-r border-white/5 z-50 transition-transform duration-300 ease-in-out ${isMobile ? (isOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'}`}
+      >
       {/* Logo */}
       <div className="p-6 pb-8">
         <Link href="/" className="block w-fit">
@@ -242,5 +291,6 @@ export default function DoctorSidebar() {
         </div>
       </div>
     </aside>
+    </>
   );
 }

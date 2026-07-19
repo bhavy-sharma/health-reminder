@@ -230,10 +230,6 @@ export default function PlansAndBilling() {
           <span>/</span>
           <span className="text-[var(--color-navy)] font-bold">Plans & Billing</span>
         </div>
-        <button className="relative p-2 text-[var(--color-navy)] hover:bg-white/50 rounded-full transition-colors">
-          <Bell size={20} />
-          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[var(--color-pulse-red)] rounded-full border-2 border-[var(--color-cream)]"></span>
-        </button>
       </div>
 
       {/* Page Title & Subtitle */}
